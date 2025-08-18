@@ -8,8 +8,10 @@ require (
 	github.com/aws/aws-sdk-go-v2/config v1.31.0
 	github.com/aws/aws-sdk-go-v2/service/lambda v1.76.0
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.87.0
+	github.com/brianvoe/gofakeit/v7 v7.3.0
 	github.com/joho/godotenv v1.5.1
 	github.com/oklog/ulid/v2 v2.1.1
+	github.com/rs/zerolog v1.34.0
 )
 
 require (
@@ -30,6 +32,5 @@ require (
 	github.com/aws/smithy-go v1.22.5 // indirect
 	github.com/mattn/go-colorable v0.1.14 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
-	github.com/rs/zerolog v1.34.0 // indirect
 	golang.org/x/sys v0.35.0 // indirect
 )
