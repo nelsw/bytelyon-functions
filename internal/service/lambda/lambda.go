@@ -2,6 +2,8 @@ package lambda
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 	"log"
 	"time"
 
@@ -10,8 +12,6 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/lambda"
 	"github.com/aws/aws-sdk-go-v2/service/lambda/types"
 )
-
-var exc *types.ResourceConflictException
 
 type Service interface {
 	Create(ctx context.Context, name, role string, zipFile []byte, vars map[string]string)
@@ -75,14 +75,15 @@ func (c *Client) Update(ctx context.Context, name string, zipFile []byte, vars m
 }
 
 func (c *Client) Publish(ctx context.Context, name string) {
-	if _, err := c.CreateFunctionUrlConfig(ctx, &lambda.CreateFunctionUrlConfigInput{
+	out, err := c.CreateFunctionUrlConfig(ctx, &lambda.CreateFunctionUrlConfigInput{
 		AuthType:     types.FunctionUrlAuthTypeNone,
 		FunctionName: &name,
-	}); err != nil {
+	})
+	if err != nil {
 		log.Panicf("CreateFunctionUrlConfig failed, %v", err)
 	}
 
-	if _, err := c.AddPermission(ctx, &lambda.AddPermissionInput{
+	if _, err = c.AddPermission(ctx, &lambda.AddPermissionInput{
 		Action:              aws.String("lambda:InvokeFunctionUrl"),
 		FunctionName:        &name,
 		Principal:           aws.String("*"),
@@ -91,6 +92,9 @@ func (c *Client) Publish(ctx context.Context, name string) {
 	}); err != nil {
 		log.Panicf("AddPermission failed, %v", err)
 	}
+
+	b, _ := json.MarshalIndent(out, "", "\t")
+	fmt.Println(string(b))
 }
 
 func (c *Client) Delete(ctx context.Context, name string) {
