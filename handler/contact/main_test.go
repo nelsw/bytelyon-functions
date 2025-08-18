@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytelyon-functions/pkg/helper"
 	"context"
 	"encoding/json"
 	"net/http"
@@ -17,12 +18,9 @@ func init() {
 	}
 }
 
-func TestHandler(t *testing.T) {
-	var data struct {
-		Name    string `json:"name" fake:"{name}"`
-		Email   string `json:"email" fake:"{email}"`
-		Message string `json:"message" fake:"{sentence}"`
-	}
+func TestPost(t *testing.T) {
+
+	var data Contact
 	if err := gofakeit.Struct(&data); err != nil {
 		panic(err)
 	}
@@ -42,4 +40,79 @@ func TestHandler(t *testing.T) {
 	if res.StatusCode != http.StatusOK {
 		t.Fail()
 	}
+
+	var actual Contact
+	err := json.Unmarshal([]byte(res.Body), &actual)
+	if err != nil {
+		t.Error(err)
+	}
+
+	t.Log(actual)
+}
+
+func TestGet(t *testing.T) {
+	ctx := context.Background()
+	req := events.LambdaFunctionURLRequest{
+		RequestContext: events.LambdaFunctionURLRequestContext{
+			HTTP: events.LambdaFunctionURLRequestContextHTTPDescription{
+				Method: http.MethodGet,
+			},
+		},
+	}
+
+	res, _ := handler(ctx, req)
+	if res.StatusCode != http.StatusOK {
+		t.Fail()
+	}
+
+	var actual []Contact
+	err := json.Unmarshal([]byte(res.Body), &actual)
+	if err != nil {
+		t.Error(err)
+	}
+
+	for _, v := range actual {
+		helper.PrintlnJson(v)
+	}
+}
+
+func TestPatch(t *testing.T) {
+	ctx := context.Background()
+	req := events.LambdaFunctionURLRequest{
+		RequestContext: events.LambdaFunctionURLRequestContext{
+			HTTP: events.LambdaFunctionURLRequestContextHTTPDescription{
+				Method: http.MethodPatch,
+			},
+		},
+		QueryStringParameters: map[string]string{
+			"id":   "01K2ZDJKTY26T3NZ2C82R3YJCR",
+			"read": "false",
+		},
+	}
+
+	res, _ := handler(ctx, req)
+	if res.StatusCode != http.StatusOK {
+		t.Fail()
+	}
+}
+
+func TestDelete(t *testing.T) {
+	ctx := context.Background()
+	req := events.LambdaFunctionURLRequest{
+		RequestContext: events.LambdaFunctionURLRequestContext{
+			HTTP: events.LambdaFunctionURLRequestContextHTTPDescription{
+				Method: http.MethodDelete,
+			},
+		},
+		QueryStringParameters: map[string]string{
+			"ids": "01K2Z9913E9DFHHS4AJXEE2S08",
+		},
+	}
+
+	res, _ := handler(ctx, req)
+	if res.StatusCode != http.StatusOK {
+		t.Fail()
+	}
+
+	t.Log(res.Body)
 }

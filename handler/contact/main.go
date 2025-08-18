@@ -4,51 +4,129 @@ import (
 	"bytelyon-functions/pkg/api"
 	"bytelyon-functions/pkg/service/s3"
 	"context"
+	"encoding/json"
+	"errors"
 	"net/http"
-	"os"
+	"strings"
 
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
 	"github.com/oklog/ulid/v2"
 )
 
+type Contact struct {
+	ID    ulid.ULID `json:"id" fake:"skip"`
+	Name  string    `json:"name" fake:"{name}"`
+	Email string    `json:"email" fake:"{email}"`
+	Value string    `json:"message" fake:"{sentence}"`
+}
+
+const bucket = "bytelyon"
+
 func handler(ctx context.Context, req events.LambdaFunctionURLRequest) (events.LambdaFunctionURLResponse, error) {
 
 	api.Log("context", ctx, "request", req)
 
+	var b []byte
+	var err error
+
 	switch req.RequestContext.HTTP.Method {
-	case http.MethodPost:
-		return handlePost(ctx, req.Body)
 	case http.MethodOptions:
 		return api.Response(http.StatusOK, "")
+	case http.MethodPost:
+		b, err = handlePost(ctx, req.Body)
+	case http.MethodGet:
+		b, err = handleGet(ctx)
+	case http.MethodPatch:
+		err = handlePatch(ctx, req.QueryStringParameters["id"], req.QueryStringParameters["read"])
+	case http.MethodDelete:
+		b, err = handleDelete(ctx, req.QueryStringParameters["ids"])
 	default:
 		return api.Response(http.StatusNotImplemented, "Method not implemented: "+req.RequestContext.HTTP.Method)
 	}
+
+	if err != nil {
+		return api.Response(http.StatusBadRequest, err.Error())
+	}
+	return api.Response(http.StatusOK, string(b))
 }
 
-func handlePost(ctx context.Context, body string) (events.LambdaFunctionURLResponse, error) {
+func handlePost(ctx context.Context, s string) ([]byte, error) {
 
-	// check that the given body actually contains data
-	if len(body) == 0 {
-		return api.Response(http.StatusBadRequest, "")
+	var c Contact
+
+	// unmarshal & validate
+	if err := json.Unmarshal([]byte(s), &c); err != nil {
+		return nil, err
+	} else if c.Name == "" {
+		return nil, errors.New("name is required")
+	} else if c.Email == "" {
+		return nil, errors.New("email is required")
+	} else if c.Value == "" {
+		return nil, errors.New("message is required")
 	}
 
-	// use the bucket defined in our env vars
-	bucket := os.Getenv("BUCKET")
+	// make ID
+	c.ID = ulid.Make()
 
-	// use a key that's guaranteed to be unique but also sortable
-	// include a json file extension so we can read what we save
-	key := ulid.Make().String() + ".json"
+	// define key
+	key := "message/contact/unread/" + c.ID.String() + ".json"
 
-	// convert the given request body string to bytes
-	data := []byte(body)
+	// marshall
+	b, _ := json.Marshal(c)
 
-	// try to put the data and return a 500 with the error message if it fails
-	if err := s3.NewClient(ctx).Put(ctx, bucket, key, data); err != nil {
-		return api.Response(http.StatusInternalServerError, "While putting data: "+err.Error())
+	return b, s3.NewClient(ctx).Put(ctx, bucket, key, b)
+}
+
+func handleGet(ctx context.Context) ([]byte, error) {
+	out, err := s3.NewClient(ctx).List(ctx, bucket, "message/contact", 100)
+	if err != nil {
+		return nil, err
 	}
 
-	return api.Response(http.StatusOK, "")
+	var vv []Contact
+	var v Contact
+	for _, o := range out {
+		_ = json.Unmarshal(o, &v)
+		vv = append(vv, v)
+	}
+
+	return json.Marshal(&vv)
+}
+
+func handleDelete(ctx context.Context, idCsv string) ([]byte, error) {
+	ids := strings.Split(idCsv, ",")
+	if len(ids) == 0 {
+		return nil, errors.New("ids are required")
+	}
+
+	client := s3.NewClient(ctx)
+	var results = map[string]interface{}{
+		"success": 0,
+		"failure": 0,
+	}
+	for _, id := range ids {
+		if err := client.Delete(ctx, bucket, "message/contact/read/"+id+".json"); err == nil {
+			results[id] = true
+			results["success"] = results["success"].(int) + 1
+		} else {
+			results[id] = false
+			results["failure"] = results["failure"].(int) + 1
+		}
+	}
+	return json.Marshal(results)
+}
+
+func handlePatch(ctx context.Context, id, read string) error {
+	if len(id) == 0 {
+		return errors.New("id is required")
+	}
+	unreadKey := "message/contact/unread/" + id + ".json"
+	readKey := "message/contact/read/" + id + ".json"
+	if read == "true" {
+		return s3.NewClient(ctx).Move(ctx, bucket, unreadKey, readKey)
+	}
+	return s3.NewClient(ctx).Move(ctx, bucket, readKey, unreadKey)
 }
 
 func main() {

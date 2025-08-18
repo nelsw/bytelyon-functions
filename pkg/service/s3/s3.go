@@ -14,11 +14,26 @@ type Service interface {
 	Delete(ctx context.Context, bucket, key string) error
 	Get(ctx context.Context, bucket, key string) ([]byte, error)
 	Put(ctx context.Context, bucket, key string, data []byte) error
-	List(ctx context.Context, bucket string, prefix *string) ([]string, error)
+	List(ctx context.Context, bucket, prefix string, maxKeys int32) ([][]byte, error)
+	Move(ctx context.Context, bucket, oldKey, newKey string) error
 }
 
 type Client struct {
 	*s3.Client
+}
+
+func (c *Client) Move(ctx context.Context, bucket, oldKey, newKey string) error {
+
+	b, err := c.Get(ctx, bucket, oldKey)
+	if err != nil {
+		return err
+	}
+
+	if err = c.Put(ctx, bucket, newKey, b); err != nil {
+		return err
+	}
+
+	return c.Delete(ctx, bucket, oldKey)
 }
 
 func NewClient(ctx context.Context) Service {
@@ -63,19 +78,25 @@ func (c *Client) Put(ctx context.Context, bucket, key string, data []byte) error
 	return err
 }
 
-func (c *Client) List(ctx context.Context, bucket string, prefix *string) ([]string, error) {
+func (c *Client) List(ctx context.Context, bucket, prefix string, maxKeys int32) ([][]byte, error) {
 	output, err := c.ListObjectsV2(ctx, &s3.ListObjectsV2Input{
-		Bucket: &bucket,
-		Prefix: prefix,
+		Bucket:  &bucket,
+		Prefix:  &prefix,
+		MaxKeys: &maxKeys,
 	})
 	if err != nil {
 		return nil, err
 	}
 
-	var keys []string
-	for _, object := range output.Contents {
-		keys = append(keys, *object.Key)
+	var results [][]byte
+	for _, out := range output.Contents {
+		o, e := c.Get(ctx, bucket, *out.Key)
+		if e != nil {
+			log.Println("Get Error:", e)
+		} else {
+			results = append(results, o)
+		}
 	}
 
-	return keys, nil
+	return results, nil
 }

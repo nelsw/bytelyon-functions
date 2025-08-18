@@ -18,6 +18,8 @@ type Service interface {
 	Update(ctx context.Context, name string, zipFile []byte, vars map[string]string)
 	Delete(ctx context.Context, name string)
 	Publish(ctx context.Context, name string)
+	InvokeEvent(ctx context.Context, name string, payload []byte) error
+	InvokeRequest(ctx context.Context, name string, payload []byte) error
 }
 
 type Client struct {
@@ -103,4 +105,24 @@ func (c *Client) Delete(ctx context.Context, name string) {
 			log.Panicf("Delete function failed, %v", err)
 		}
 	}
+}
+
+func (c *Client) InvokeEvent(ctx context.Context, name string, payload []byte) error {
+	return c.invoke(ctx, types.InvocationTypeEvent, name, payload)
+}
+
+func (c *Client) InvokeRequest(ctx context.Context, name string, payload []byte) error {
+	return c.invoke(ctx, types.InvocationTypeRequestResponse, name, payload)
+}
+
+func (c *Client) invoke(ctx context.Context, invocationType types.InvocationType, name string, payload []byte) error {
+	input := lambda.InvokeInput{
+		FunctionName:   &name,
+		InvocationType: invocationType,
+	}
+	if payload != nil {
+		input.Payload = payload
+	}
+	_, err := c.Invoke(ctx, &input)
+	return err
 }

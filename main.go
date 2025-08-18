@@ -1,7 +1,7 @@
 package main
 
 import (
-	"bytelyon-functions/internal/service/lambda"
+	"bytelyon-functions/pkg/service/lambda"
 	"context"
 	"flag"
 	"fmt"
