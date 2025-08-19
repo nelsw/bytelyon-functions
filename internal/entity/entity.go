@@ -112,12 +112,17 @@ func (m *Model) Path(v interface{}) Entity {
 	if v == nil {
 		v = m.value
 	}
-	val := reflect.TypeOf(v)
-	if val.Kind() == reflect.Ptr {
-		val = val.Elem()
+
+	if s, ok := v.(string); ok {
+		m.path = s
+	} else {
+		val := reflect.TypeOf(v)
+		if val.Kind() == reflect.Ptr {
+			val = val.Elem()
+		}
+		m.path = val.Name()
+		m.path = pathRegexp.ReplaceAllString(m.path, `/$1`)
 	}
-	m.path = val.Name()
-	m.path = pathRegexp.ReplaceAllString(m.path, `/$1`)
 	m.path = strings.ToLower(m.path)
 	if strings.HasPrefix(m.path, "/") {
 		m.path = m.path[1:]
