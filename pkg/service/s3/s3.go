@@ -16,6 +16,8 @@ type Service interface {
 	Put(ctx context.Context, bucket, key string, data []byte) error
 	List(ctx context.Context, bucket, prefix string, maxKeys int32) ([][]byte, error)
 	Move(ctx context.Context, bucket, oldKey, newKey string) error
+	Keys(ctx context.Context, size int32, bucket, prefix string) ([]string, error)
+	KeysAfter(ctx context.Context, size int32, bucket, prefix, after string) ([]string, error)
 }
 
 type Client struct {
@@ -34,14 +36,6 @@ func (c *Client) Move(ctx context.Context, bucket, oldKey, newKey string) error 
 	}
 
 	return c.Delete(ctx, bucket, oldKey)
-}
-
-func NewClient(ctx context.Context) Service {
-	if cfg, err := config.LoadDefaultConfig(ctx); err != nil {
-		panic(err)
-	} else {
-		return &Client{s3.NewFromConfig(cfg)}
-	}
 }
 
 func (c *Client) Delete(ctx context.Context, bucket, key string) error {
@@ -99,4 +93,36 @@ func (c *Client) List(ctx context.Context, bucket, prefix string, maxKeys int32)
 	}
 
 	return results, nil
+}
+
+func (c *Client) Keys(ctx context.Context, size int32, bucket, prefix string) ([]string, error) {
+	return c.KeysAfter(ctx, size, bucket, prefix, "")
+}
+
+func (c *Client) KeysAfter(ctx context.Context, size int32, bucket, prefix, after string) ([]string, error) {
+	input := s3.ListObjectsV2Input{
+		Bucket:  &bucket,
+		Prefix:  &prefix,
+		MaxKeys: &size,
+	}
+	if after != "" {
+		input.StartAfter = &after
+	}
+	output, err := c.ListObjectsV2(ctx, &input)
+	if err != nil {
+		return nil, err
+	}
+	var keys []string
+	for _, out := range output.Contents {
+		keys = append(keys, *out.Key)
+	}
+	return keys, nil
+}
+
+func NewClient(ctx context.Context) Service {
+	if cfg, err := config.LoadDefaultConfig(ctx); err != nil {
+		panic(err)
+	} else {
+		return &Client{s3.NewFromConfig(cfg)}
+	}
 }

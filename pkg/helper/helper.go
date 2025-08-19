@@ -3,6 +3,7 @@ package helper
 import (
 	"encoding/json"
 	"fmt"
+	"regexp"
 )
 
 func Marshal(v interface{}) string {
@@ -21,4 +22,9 @@ func PrettyPrintln(v interface{}) {
 
 func PrintlnJson(v interface{}) {
 	fmt.Println(Marshal(v))
+}
+
+func SplitStringByCase(s string) string {
+	reg := regexp.MustCompile("([A-Z]+)")
+	return reg.ReplaceAllString(s, `/$1`)
 }
