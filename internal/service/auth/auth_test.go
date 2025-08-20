@@ -12,20 +12,17 @@ func init() {
 		panic(".env file not found")
 	}
 }
+
 func TestNewAccessToken(t *testing.T) {
 
 	data := ulid.Make().String()
-	out, err := NewToken(data)
+
+	claims, err := Validate(NewToken(data))
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	var claims *Claims
-	claims, err = Validate(out)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if claims.Data != data {
+	if data != claims.Data {
 		t.Fatalf("got %s, want %s", claims.Data, data)
 	}
 }
