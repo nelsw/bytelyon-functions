@@ -1,7 +1,7 @@
 package entity
 
 import (
-	"bytelyon-functions/internal/model"
+	"bytelyon-functions/internal/model/user"
 	"context"
 	"fmt"
 	"reflect"
@@ -40,7 +40,7 @@ func TestPage(t *testing.T) {
 }
 
 func TestFoo(t *testing.T) {
-	user := model.User{
+	user := user.User{
 		ID:    ulid.Make(),
 		Email: gofakeit.Email(),
 	}

@@ -2,8 +2,9 @@ package main
 
 import (
 	"bytelyon-functions/internal/entity"
-	"bytelyon-functions/internal/model"
-	"bytelyon-functions/internal/service/auth"
+	"bytelyon-functions/internal/model/auth"
+	"bytelyon-functions/internal/model/credentials"
+	"bytelyon-functions/internal/model/user"
 	"bytelyon-functions/pkg/api"
 	"bytelyon-functions/pkg/service/ses"
 	"context"
@@ -36,29 +37,29 @@ func handler(ctx context.Context, req events.LambdaFunctionURLRequest) (events.L
 
 func handleLogin(ctx context.Context, token string) (events.LambdaFunctionURLResponse, error) {
 
-	c, err := model.NewCredentials(token)
+	c, err := credentials.NewCredentials(token)
 	if err != nil {
 		return api.Response(http.StatusBadRequest, err.Error())
 	}
 
-	var email model.UserEmail
+	var email user.UserEmail
 	if err = entity.New(ctx).Value(&email).ID(c.Email).Find(); err != nil {
 		return api.Response(http.StatusBadRequest, "email not found")
 	}
 
-	var password model.UserPassword
+	var password user.UserPassword
 	if err = entity.New(ctx).Value(&password).ID(email.UserID).Find(); err != nil {
 		return api.Response(http.StatusBadRequest, err.Error())
 	} else if err = password.Validate(c.Password); err != nil {
 		return api.Response(http.StatusUnauthorized, "incorrect password")
 	}
 
-	var u model.User
+	var u user.User
 	if err = entity.New(ctx).Value(&u).ID(email.UserID).Find(); err != nil {
 		return api.Response(http.StatusBadRequest, err.Error())
 	}
 
-	var up model.UserProfile
+	var up user.UserProfile
 	_ = entity.New(ctx).Value(&up).ID(email.UserID).Find()
 
 	return api.Response(http.StatusOK, auth.NewToken(map[string]interface{}{
@@ -71,7 +72,7 @@ func handleLogin(ctx context.Context, token string) (events.LambdaFunctionURLRes
 
 func handleSignup(ctx context.Context, token string) (events.LambdaFunctionURLResponse, error) {
 
-	c, err := model.NewCredentials(token)
+	c, err := credentials.NewCredentials(token)
 	if err != nil {
 		return api.Response(http.StatusBadRequest, err.Error())
 	}

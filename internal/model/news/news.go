@@ -1,8 +1,10 @@
-package model
+package news
 
 import (
 	"bytelyon-functions/internal/entity"
+	"bytelyon-functions/internal/model/id"
 	"encoding/xml"
+	"fmt"
 	"io"
 	"net/http"
 	"regexp"
@@ -72,6 +74,26 @@ func (v JobType) Sanitize(b []byte) []byte {
 	return []byte(str)
 }
 
+type Job struct {
+	ID        uuid.UUID `json:"id"`
+	Name      string    `json:"name"`
+	Type      JobType   `json:"type"`
+	Roots     []string  `json:"roots"`
+	Keywords  []string  `json:"keywords"`
+	Frequency int       `json:"frequency"` // minutes
+	LastRun   time.Time `json:"last_run"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+}
+
+type Work struct {
+	ID       ulid.ULID `json:"id"`
+	JobID    uuid.UUID `json:"job_id"`
+	Root     string    `json:"root"`
+	Keywords []string  `json:"keywords"`
+	Items    []Item    `json:"items"`
+}
+
 type Item struct {
 	Title  string    `json:"title" xml:"title"`
 	Link   string    `json:"link" xml:"link"`
@@ -92,19 +114,6 @@ type RSS struct {
 		Items []Item `xml:"item"`
 	} `xml:"channel"`
 }
-type Work struct {
-	ID    ulid.ULID `json:"id"`
-	JobID uuid.UUID `json:"job_id"`
-	Items []Item    `json:"items"`
-}
-
-type Job struct {
-	ID        uuid.UUID `json:"id"`
-	Type      JobType   `json:"type"`
-	Keywords  []string  `json:"keywords"`
-	Frequency int       `json:"frequency"` // minutes
-	LastRun   time.Time `json:"last_run"`
-}
 
 func (v *Job) ReadyToWork() bool {
 	return v.LastRun.Add(time.Minute * time.Duration(v.Frequency)).Before(time.Now())
@@ -112,47 +121,10 @@ func (v *Job) ReadyToWork() bool {
 
 func (v *Job) CreateWork() error {
 
-	fn := func(u string) {
-
-		res, err := http.Get(u)
-		if err != nil {
-			log.Error().Err(err).Str("URL", u).Str("ID", v.ID.String()).Msg("failed to http.Get url")
-			return
-		}
-		defer res.Body.Close()
-
-		var b []byte
-		if b, err = io.ReadAll(res.Body); err != nil {
-			log.Error().Err(err).Str("ID", v.ID.String()).Msg("failed to io.ReadAll response body")
-			return
-		}
-
-		b = v.Type.Sanitize(b)
-
-		var rss RSS
-		if err = xml.Unmarshal(b, &rss); err != nil {
-			log.Error().Err(err).Str("ID", v.ID.String()).Msg("failed to unmarshal xml")
-			return
-		}
-
-		log.Info().Int("size", len(rss.Channel.Items)).Msg("work items found")
-
-		if len(rss.Channel.Items) == 0 {
-			return
-		}
-
-		work := Work{NewULID(), v.ID, rss.Channel.Items}
-		if err = entity.New().Value(&work).Save(); err != nil {
-			return
-		}
-
-		log.Info().Str("workID", work.ID.String()).Msg("work items created")
-	}
-
 	log.Info().Str("ID", v.ID.String()).Msg("creating work")
 
 	for _, u := range v.Type.URLs() {
-		fn(u)
+		_ = v.createWorkItems(u)
 	}
 
 	if err := entity.New().Value(v).Save(); err != nil {
@@ -161,5 +133,53 @@ func (v *Job) CreateWork() error {
 	}
 
 	log.Info().Str("ID", v.ID.String()).Msg("job updated")
+
 	return nil
+}
+
+func (v *Job) createWorkItems(u string) (err error) {
+
+	u = fmt.Sprintf(u, strings.Join(v.Keywords, ","))
+
+	res, err := http.Get(u)
+	if err != nil {
+		log.Error().Err(err).Str("URL", u).Str("ID", v.ID.String()).Msg("failed to http.Get url")
+		return
+	}
+	defer res.Body.Close()
+
+	var b []byte
+	if b, err = io.ReadAll(res.Body); err != nil {
+		log.Error().Err(err).Str("ID", v.ID.String()).Msg("failed to io.ReadAll response body")
+		return
+	}
+
+	b = v.Type.Sanitize(b)
+
+	var rss RSS
+	if err = xml.Unmarshal(b, &rss); err != nil {
+		log.Error().Err(err).Str("ID", v.ID.String()).Msg("failed to unmarshal xml")
+		return
+	}
+
+	log.Info().Int("size", len(rss.Channel.Items)).Msg("work items found")
+
+	if len(rss.Channel.Items) == 0 {
+		return
+	}
+
+	work := Work{
+		ID:       id.NewULID(),
+		JobID:    v.ID,
+		Items:    rss.Channel.Items,
+		Root:     u,
+		Keywords: v.Keywords,
+	}
+	if err = entity.New().Value(&work).Save(); err != nil {
+		return
+	}
+
+	log.Info().Str("workID", work.ID.String()).Msg("work items created")
+
+	return
 }

@@ -1,4 +1,4 @@
-package model
+package user
 
 import (
 	"time"
@@ -22,22 +22,22 @@ type User struct {
 	Roles     []RoleType `json:"roles"`
 }
 
-type UserProfile struct {
+type Profile struct {
 	ID    ulid.ULID `json:"id"` // User.ID
 	Name  string    `json:"name"`
 	Image string    `json:"image"`
 }
-type UserEmail struct {
+type Email struct {
 	ID       string    `json:"id" orm:"pk"` // email
 	UserID   ulid.ULID `json:"user_id"`
 	Verified bool      `json:"verified"`
 	Token    string    `json:"token"`
 }
-type UserPassword struct {
+type Password struct {
 	ID    ulid.ULID `json:"id"` // User.ID
 	Value []byte    `json:"value"`
 }
 
-func (p *UserPassword) Validate(s string) error {
+func (p *Password) Validate(s string) error {
 	return bcrypt.CompareHashAndPassword(p.Value, []byte(s))
 }

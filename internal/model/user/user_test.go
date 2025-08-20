@@ -1,4 +1,4 @@
-package model
+package user
 
 import (
 	"bytelyon-functions/internal/entity"

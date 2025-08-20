@@ -1,6 +1,8 @@
-package model
+package credentials
 
 import (
+	ulid2 "bytelyon-functions/internal/model/id"
+	"bytelyon-functions/internal/model/user"
 	"encoding/base64"
 	"errors"
 	"net/mail"
@@ -67,29 +69,30 @@ func NewCredentials(token string) (*Credentials, error) {
 	}, nil
 }
 
-func (c *Credentials) NewUser() *User {
-	return &User{
+func (c *Credentials) NewUser() *user.User {
+	return &user.User{
+		ID:        ulid2.NewULID(),
 		Email:     c.Email,
 		CreatedAt: time.Now(),
-		Roles:     []RoleType{Basic},
+		Roles:     []user.RoleType{user.Basic},
 	}
 }
 
-func (c *Credentials) NewUserProfile(userID ulid.ULID) *UserProfile {
-	return &UserProfile{ID: userID}
+func (c *Credentials) NewUserProfile(userID ulid.ULID) *user.Profile {
+	return &user.Profile{ID: userID}
 }
 
-func (c *Credentials) NewEmail(userID ulid.ULID) *UserEmail {
-	return &UserEmail{
+func (c *Credentials) NewEmail(userID ulid.ULID) *user.Email {
+	return &user.Email{
 		ID:     c.Email,
 		UserID: userID,
 		Token:  uuid.New().String(),
 	}
 }
 
-func (c *Credentials) NewPassword(userID ulid.ULID) *UserPassword {
+func (c *Credentials) NewPassword(userID ulid.ULID) *user.Password {
 	val, _ := bcrypt.GenerateFromPassword([]byte(c.Password), bcrypt.MinCost)
-	return &UserPassword{
+	return &user.Password{
 		ID:    userID,
 		Value: val,
 	}
