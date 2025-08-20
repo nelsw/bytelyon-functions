@@ -127,6 +127,7 @@ func (v *Job) CreateWork() error {
 		_ = v.createWorkItems(u)
 	}
 
+	v.LastRun = time.Now()
 	if err := entity.New().Value(v).Save(); err != nil {
 		log.Error().Err(err).Str("ID", v.ID.String()).Msg("failed to update job last run time")
 		return err
