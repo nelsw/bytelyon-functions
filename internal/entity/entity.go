@@ -8,6 +8,8 @@ import (
 	"reflect"
 	"regexp"
 	"strings"
+
+	"github.com/rs/zerolog/log"
 )
 
 var pathRegexp = regexp.MustCompile("([A-Z]+)")
@@ -19,6 +21,7 @@ type builder interface {
 	ID(interface{}) Entity
 	Value(interface{}) Entity
 	Type(interface{}) Entity
+	Data(b []byte) Entity
 }
 
 type Entity interface {
@@ -26,7 +29,9 @@ type Entity interface {
 	Save() error
 	Find() error
 	Exists() bool
-	Page(int32, string) error
+	Page(int32) error
+	PageAfter(int32, string) error
+	Delete() error
 }
 
 type Model struct {
@@ -36,6 +41,10 @@ type Model struct {
 	id     string
 	data   []byte
 	value  interface{}
+}
+
+func (m *Model) Delete() error {
+	return s3.NewClient(m.ctx).Delete(m.ctx, m.bucket, m.path+m.id)
 }
 
 func (m *Model) Save() error {
@@ -55,7 +64,11 @@ func (m *Model) Exists() bool {
 	return err != nil && strings.Contains(err.Error(), "NoSuchKey")
 }
 
-func (m *Model) Page(size int32, after string) error {
+func (m *Model) Page(size int32) error {
+	return m.PageAfter(size, "")
+}
+
+func (m *Model) PageAfter(size int32, after string) error {
 	keys, err := s3.NewClient(m.ctx).KeysAfter(m.ctx, size, m.bucket, m.path, after)
 
 	var vals []interface{}
@@ -64,7 +77,7 @@ func (m *Model) Page(size int32, after string) error {
 	for _, key := range keys {
 		out, err = s3.NewClient(m.ctx).Get(m.ctx, m.bucket, key)
 		if err != nil {
-			fmt.Println(err)
+			log.Err(err).Str("key", key).Msg("failed to get object from s3")
 			continue
 		}
 		_ = json.Unmarshal(out, &v)
@@ -156,6 +169,11 @@ func (m *Model) ID(v interface{}) Entity {
 		m.id += ".json"
 	}
 
+	return m
+}
+
+func (m *Model) Data(b []byte) Entity {
+	m.data = b
 	return m
 }
 
