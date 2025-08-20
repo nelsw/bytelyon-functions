@@ -42,12 +42,12 @@ func handleLogin(ctx context.Context, token string) (events.LambdaFunctionURLRes
 		return api.Response(http.StatusBadRequest, err.Error())
 	}
 
-	var email user.UserEmail
+	var email user.Email
 	if err = entity.New(ctx).Value(&email).ID(c.Email).Find(); err != nil {
 		return api.Response(http.StatusBadRequest, "email not found")
 	}
 
-	var password user.UserPassword
+	var password user.Password
 	if err = entity.New(ctx).Value(&password).ID(email.UserID).Find(); err != nil {
 		return api.Response(http.StatusBadRequest, err.Error())
 	} else if err = password.Validate(c.Password); err != nil {
@@ -59,7 +59,7 @@ func handleLogin(ctx context.Context, token string) (events.LambdaFunctionURLRes
 		return api.Response(http.StatusBadRequest, err.Error())
 	}
 
-	var up user.UserProfile
+	var up user.Profile
 	_ = entity.New(ctx).Value(&up).ID(email.UserID).Find()
 
 	return api.Response(http.StatusOK, auth.NewToken(map[string]interface{}{
