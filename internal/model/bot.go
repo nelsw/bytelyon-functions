@@ -3,14 +3,15 @@ package model
 import (
 	"bytelyon-functions/internal/entity"
 	"encoding/xml"
-	"github.com/google/uuid"
-	"github.com/oklog/ulid/v2"
-	"github.com/rs/zerolog/log"
 	"io"
 	"net/http"
 	"regexp"
 	"strings"
 	"time"
+
+	"github.com/google/uuid"
+	"github.com/oklog/ulid/v2"
+	"github.com/rs/zerolog/log"
 )
 
 type DateTime time.Time
