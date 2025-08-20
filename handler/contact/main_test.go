@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bytelyon-functions/pkg/helper"
 	"context"
 	"encoding/json"
 	"net/http"
@@ -72,7 +71,7 @@ func TestGet(t *testing.T) {
 	}
 
 	for _, v := range actual {
-		helper.PrintlnJson(v)
+		t.Log(v)
 	}
 }
 

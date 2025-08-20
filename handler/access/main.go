@@ -23,12 +23,10 @@ func handler(ctx context.Context, req events.LambdaFunctionURLRequest) (events.L
 	case http.MethodPost:
 		if req.QueryStringParameters["forgot"] == "true" {
 			return api.Response(http.StatusNotImplemented, "Forgot password not implemented")
-		}
-		if req.QueryStringParameters["login"] == "true" {
+		} else if req.QueryStringParameters["login"] == "true" {
 			return handleLogin(ctx, req.Headers["authorization"])
-		}
-		if req.QueryStringParameters["signup"] == "true" {
-			return handleLogin(ctx, req.Headers["authorization"])
+		} else if req.QueryStringParameters["signup"] == "true" {
+			return api.Response(http.StatusNotImplemented, "Signup not implemented")
 		}
 		fallthrough
 	default:
@@ -55,7 +53,20 @@ func handleLogin(ctx context.Context, token string) (events.LambdaFunctionURLRes
 		return api.Response(http.StatusUnauthorized, "incorrect password")
 	}
 
-	return api.Response(http.StatusOK, auth.NewToken(email.UserID))
+	var u model.User
+	if err = entity.New(ctx).Value(&u).ID(email.UserID).Find(); err != nil {
+		return api.Response(http.StatusBadRequest, err.Error())
+	}
+
+	var up model.UserProfile
+	_ = entity.New(ctx).Value(&up).ID(email.UserID).Find()
+
+	return api.Response(http.StatusOK, auth.NewToken(map[string]interface{}{
+		"email":          u.Email,
+		"email_verified": email.Verified,
+		"name":           up.Name,
+		"image":          up.Image,
+	}))
 }
 
 func handleSignup(ctx context.Context, token string) (events.LambdaFunctionURLResponse, error) {
@@ -65,20 +76,19 @@ func handleSignup(ctx context.Context, token string) (events.LambdaFunctionURLRe
 		return api.Response(http.StatusBadRequest, err.Error())
 	}
 
-	if err = entity.New(ctx).Value(c.NewUser()).Save(); err != nil {
+	u := c.NewUser()
+	if err = entity.New(ctx).Value(u).Save(); err != nil {
+		return api.Response(http.StatusInternalServerError, err.Error())
+	} else if err = entity.New(ctx).Value(c.NewUserProfile(u.ID)).Save(); err != nil {
+		return api.Response(http.StatusInternalServerError, err.Error())
+	} else if err = entity.New(ctx).Value(c.NewPassword(u.ID)).Save(); err != nil {
 		return api.Response(http.StatusInternalServerError, err.Error())
 	}
 
-	e := c.NewEmail()
-	if err = entity.New(ctx).Value(c.NewEmail()).Save(); err != nil {
+	e := c.NewEmail(u.ID)
+	if err = entity.New(ctx).Value(e).Save(); err != nil {
 		return api.Response(http.StatusInternalServerError, err.Error())
-	}
-
-	if err = entity.New(ctx).Value(c.NewPassword()).Save(); err != nil {
-		return api.Response(http.StatusInternalServerError, err.Error())
-	}
-
-	if err = ses.New(ctx).VerifyEmail(ctx, c.Email, e.Token); err != nil {
+	} else if err = ses.New(ctx).VerifyEmail(ctx, c.Email, e.Token); err != nil {
 		return api.Response(http.StatusInternalServerError, err.Error())
 	}
 
