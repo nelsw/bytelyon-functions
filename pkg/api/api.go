@@ -44,7 +44,7 @@ func OK(v ...any) (events.LambdaFunctionURLResponse, error) {
 	if s, ok := v[0].(string); ok {
 		return Response(http.StatusOK, s)
 	}
-	b, err := json.Marshal(v)
+	b, err := json.Marshal(v[0])
 	if err != nil {
 		b, _ = json.Marshal(map[string]interface{}{
 			"message": "failed to marshal response",

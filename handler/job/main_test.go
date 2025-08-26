@@ -13,11 +13,13 @@ import (
 
 func TestPost(t *testing.T) {
 	b, _ := json.Marshal(map[string]interface{}{
-		"name":      gofakeit.Name(),
-		"type":      bot.GoogleNews,
-		"roots":     []string{},
-		"keywords":  []string{"ford", "bronco"},
-		"frequency": 60,
+		"name":     gofakeit.Name(),
+		"type":     bot.GoogleNews,
+		"keywords": []string{"ford", "bronco"},
+		"frequency": map[string]interface{}{
+			"unit":  "h",
+			"value": 12,
+		},
 	})
 	ctx := context.Background()
 	req := events.LambdaFunctionURLRequest{
@@ -61,11 +63,19 @@ func TestGet(t *testing.T) {
 		t.Errorf("got status code %d, want %d", res.StatusCode, http.StatusOK)
 	}
 
-	var vv []bot.Job
-	err := json.Unmarshal([]byte(res.Body), &vv)
-	if err != nil {
+	var m map[string]interface{}
+	if err := json.Unmarshal([]byte(res.Body), &m); err != nil {
 		t.Error(err)
 	}
-	b, _ := json.MarshalIndent(&vv, "", "\t")
-	t.Log(string(b))
+	if _, ok := m["items"]; !ok {
+		t.Error("items not found")
+	}
+	size, ok := m["size"]
+	if !ok {
+		t.Error("size not found")
+	}
+	n := int(size.(float64))
+	if n != len(m["items"].([]interface{})) {
+		t.Errorf("got size %d, want %d", n, len(m["items"].([]interface{})))
+	}
 }

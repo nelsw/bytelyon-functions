@@ -2,19 +2,21 @@ package bot
 
 import (
 	"bytelyon-functions/internal/entity"
+	"errors"
 	"fmt"
 	"regexp"
 	"strings"
 	"time"
 
-	"github.com/google/uuid"
+	"github.com/oklog/ulid/v2"
 	"github.com/rs/zerolog/log"
 )
 
 type JobType int
 
 const (
-	GoogleNews JobType = iota + 1
+	Custom JobType = iota + 1
+	GoogleNews
 	BingNews
 )
 
@@ -44,15 +46,63 @@ func (v JobType) Sanitize(b []byte) []byte {
 }
 
 type Job struct {
-	ID        uuid.UUID `json:"id"`
+	ID        ulid.ULID `json:"id"`
 	Name      string    `json:"name"`
 	Type      JobType   `json:"type"`
-	Roots     []string  `json:"roots"`
 	Keywords  []string  `json:"keywords"`
-	Frequency int       `json:"frequency"` // minutes
-	Success   bool      `json:"success"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
+	Frequency Frequency `json:"frequency"`
+	Error     error     `json:"error"`
+	LastRunAt Timestamp `json:"last_run_at"`
+	CreatedAt Timestamp `json:"created_at"`
+	UpdatedAt Timestamp `json:"updated_at"`
+}
+
+type Timestamp struct {
+	UTC   time.Time `json:"utc"`
+	Unix  int64     `json:"unix"`
+	Human string    `json:"human"`
+}
+
+func NewTimeStamp() Timestamp {
+	t := time.Now().UTC()
+	return Timestamp{
+		UTC:   t,
+		Unix:  t.Unix(),
+		Human: t.Format("01/02/06 3:04PM"),
+	}
+}
+
+func (t Timestamp) BeforeNow(d time.Duration) bool {
+	return t.UTC.Add(d).Before(time.Now().UTC())
+}
+
+type FrequencyUnit string
+
+const (
+	Minute FrequencyUnit = "m"
+	Hour   FrequencyUnit = "h"
+	Day    FrequencyUnit = "d"
+)
+
+var FrequencyUnits = map[string]FrequencyUnit{
+	string(Minute): Minute,
+	string(Hour):   Hour,
+	string(Day):    Day,
+}
+
+type Frequency struct {
+	Unit  FrequencyUnit `json:"unit"`
+	Value int           `json:"value"`
+}
+
+func (f Frequency) Duration() time.Duration {
+	if f.Unit == Minute {
+		return time.Minute * time.Duration(f.Value)
+	} else if f.Unit == Hour {
+		return time.Hour * time.Duration(f.Value)
+	} else { // day
+		return time.Hour * 24 * time.Duration(f.Value)
+	}
 }
 
 func (v *Job) Validate() error {
@@ -60,30 +110,30 @@ func (v *Job) Validate() error {
 		return fmt.Errorf("job type must be set")
 	} else if len(v.Keywords) == 0 {
 		return fmt.Errorf("job keywords must be set")
-	} else if v.Frequency == 0 {
-		return fmt.Errorf("job frequency must be set")
+	} else if _, ok := FrequencyUnits[string(v.Frequency.Unit)]; !ok {
+		return fmt.Errorf("job frequency must be one of: [m, h, d]")
 	}
 	return nil
 }
 
 func (v *Job) Ready() bool {
-	return v.UpdatedAt.Add(time.Minute * time.Duration(v.Frequency)).Before(time.Now())
+	return v.LastRunAt.BeforeNow(v.Frequency.Duration())
 }
 
 func (v *Job) CreateWork() error {
 
 	log.Info().Str("ID", v.ID.String()).Msg("creating work")
-
-	ok := true
-	for _, u := range v.Type.URLs() {
-		if err := createWorkItems(v.ID, v.Type, u, v.Keywords); err != nil {
-			ok = false
-			break
+	if v.Type == Custom {
+		v.Error = errors.New("custom job not supported yet")
+	} else {
+		for _, u := range v.Type.URLs() {
+			if v.Error = createWorkItems(v.ID, v.Type, u, v.Keywords); v.Error != nil {
+				break
+			}
 		}
 	}
 
-	v.Success = ok
-	v.UpdatedAt = time.Now()
+	v.UpdatedAt = NewTimeStamp()
 	if err := entity.New().Value(v).Save(); err != nil {
 		log.Error().Err(err).Str("ID", v.ID.String()).Msg("failed to update job last run time")
 		return err

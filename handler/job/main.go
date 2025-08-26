@@ -3,17 +3,16 @@ package main
 import (
 	"bytelyon-functions/internal/entity"
 	"bytelyon-functions/internal/model/bot"
+	"bytelyon-functions/internal/model/id"
 	"bytelyon-functions/pkg/api"
 	"context"
 	"encoding/json"
 	"net/http"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
-	"github.com/google/uuid"
 )
 
 func handler(ctx context.Context, req events.LambdaFunctionURLRequest) (events.LambdaFunctionURLResponse, error) {
@@ -55,11 +54,11 @@ func handlePost(ctx context.Context, body string) (events.LambdaFunctionURLRespo
 		return api.BadRequest(err)
 	}
 
-	if v.ID = uuid.New(); v.Name == "" {
+	if v.ID = id.NewULID(); v.Name == "" {
 		v.Name = v.ID.String()
 	}
-	v.CreatedAt = time.Now()
-	v.UpdatedAt = time.Now()
+	v.CreatedAt = bot.NewTimeStamp()
+	v.UpdatedAt = bot.NewTimeStamp()
 
 	if err := entity.New(ctx).Value(&v).Save(); err != nil {
 		return api.ServerError(err)
@@ -75,7 +74,7 @@ func handlePut(ctx context.Context, body string) (events.LambdaFunctionURLRespon
 	} else if err = v.Validate(); err != nil {
 		return api.BadRequest(err)
 	}
-	v.UpdatedAt = time.Now()
+	v.UpdatedAt = bot.NewTimeStamp()
 	if err := entity.New(ctx).Value(&v).Save(); err != nil {
 		return api.ServerError(err)
 	}
@@ -94,15 +93,18 @@ func handleGet(ctx context.Context, size string) (events.LambdaFunctionURLRespon
 		return api.ServerError(err)
 	}
 
-	return api.OK(&vv)
+	return api.OK(map[string]interface{}{
+		"items": vv,
+		"size":  len(vv),
+	})
 }
 
 func handleDelete(ctx context.Context, ids string) (events.LambdaFunctionURLResponse, error) {
-	var v bot.Job
+	var j bot.Job
 	m := map[string]string{}
-	for _, id := range strings.Split(ids, ",") {
-		if err := entity.New(ctx).Value(&v).ID(id).Delete(); err != nil {
-			m[id] = err.Error()
+	for _, v := range strings.Split(ids, ",") {
+		if err := entity.New(ctx).Value(&j).ID(v).Delete(); err != nil {
+			m[v] = err.Error()
 		}
 	}
 	return api.OK(map[string]interface{}{"errors": m})

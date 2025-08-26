@@ -9,20 +9,19 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/google/uuid"
 	"github.com/oklog/ulid/v2"
 	"github.com/rs/zerolog/log"
 )
 
 type Work struct {
 	ID       ulid.ULID `json:"id"`
-	JobID    uuid.UUID `json:"job_id"`
+	JobID    ulid.ULID `json:"job_id"`
 	Root     string    `json:"root"`
 	Keywords []string  `json:"keywords"`
 	Items    []Item    `json:"items"`
 }
 
-func createWorkItems(ID uuid.UUID, t JobType, u string, keys []string) (err error) {
+func createWorkItems(ID ulid.ULID, t JobType, u string, keys []string) (err error) {
 
 	u = fmt.Sprintf(u, strings.Join(keys, ","))
 
