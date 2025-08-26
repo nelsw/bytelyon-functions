@@ -1,14 +1,10 @@
 package entity
 
 import (
-	"bytelyon-functions/internal/model/user"
 	"context"
 	"fmt"
-	"reflect"
-	"strings"
 	"testing"
 
-	"github.com/brianvoe/gofakeit/v7"
 	"github.com/oklog/ulid/v2"
 )
 
@@ -33,28 +29,12 @@ func TestFind(t *testing.T) {
 
 func TestPage(t *testing.T) {
 	var v []FooBar
-	if err := New(ctx).Path(&FooBar{}).Type(&v).Page(100, ""); err != nil {
+	if err := New(ctx).Path(&FooBar{}).Type(&v).Page(100); err != nil {
 		t.Error(err)
 	}
 	fmt.Println(v)
 }
 
 func TestFoo(t *testing.T) {
-	user := user.User{
-		ID:    ulid.Make(),
-		Email: gofakeit.Email(),
-	}
-	v := reflect.ValueOf(user)
 
-	for i := 0; i < v.NumField(); i++ {
-		tag := v.Type().Field(i).Tag
-		if strings.Contains(string(tag), "orm") {
-			if strings.Contains(string(tag), "orm:\"pk\"") {
-				name := v.Type().Field(i).Name
-				val := v.FieldByName(name)
-				fmt.Println("PK", name, tag, val)
-			}
-
-		}
-	}
 }
