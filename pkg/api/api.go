@@ -3,6 +3,7 @@ package api
 import (
 	"encoding/json"
 	"log"
+	"net/http"
 
 	"github.com/aws/aws-lambda-go/events"
 )
@@ -34,6 +35,36 @@ func LogURLRequest(req events.LambdaFunctionURLRequest) {
 		"query":   req.QueryStringParameters,
 		"body":    req.Body,
 	})
+}
+
+func OK(v ...any) (events.LambdaFunctionURLResponse, error) {
+	if v == nil || len(v) == 0 || v[0] == nil {
+		return Response(http.StatusOK, "")
+	}
+	if s, ok := v[0].(string); ok {
+		return Response(http.StatusOK, s)
+	}
+	b, err := json.Marshal(v)
+	if err != nil {
+		b, _ = json.Marshal(map[string]interface{}{
+			"message": "failed to marshal response",
+			"error":   err.Error(),
+		})
+		return Response(http.StatusInternalServerError, string(b))
+	}
+	return Response(http.StatusOK, string(b))
+}
+
+func BadRequest(err error) (events.LambdaFunctionURLResponse, error) {
+	return Response(http.StatusBadRequest, err.Error())
+}
+
+func ServerError(err error) (events.LambdaFunctionURLResponse, error) {
+	return Response(http.StatusInternalServerError, err.Error())
+}
+
+func NotImplemented(s string) (events.LambdaFunctionURLResponse, error) {
+	return Response(http.StatusNotImplemented, s)
 }
 
 func Response(code int, body string) (events.LambdaFunctionURLResponse, error) {
