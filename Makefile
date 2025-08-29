@@ -3,9 +3,8 @@ include .env
 .PHONY: test
 
 test:
-	@printf "➜  %s  %s [\033[35m%s\033[0m]" "📊" "test" "./..."
+	@printf "➜  %s  %s [\033[35m%s\033[0m]\n➜  " "📊" "test" "./..."
 	@go test -coverprofile cp.out ./... > /dev/null
-	@printf "  ✅\n"
 	@go tool cover -func=cp.out
 	@go tool cover -html=cp.out
 

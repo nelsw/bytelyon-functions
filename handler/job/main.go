@@ -3,16 +3,17 @@ package main
 import (
 	"bytelyon-functions/internal/entity"
 	"bytelyon-functions/internal/model/bot"
-	"bytelyon-functions/internal/model/id"
 	"bytelyon-functions/pkg/api"
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"strconv"
 	"strings"
 
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
+	"github.com/oklog/ulid/v2"
 )
 
 func handler(ctx context.Context, req events.LambdaFunctionURLRequest) (events.LambdaFunctionURLResponse, error) {
@@ -46,39 +47,30 @@ func handlePatch(ctx context.Context, id string) (events.LambdaFunctionURLRespon
 }
 
 func handlePost(ctx context.Context, body string) (events.LambdaFunctionURLResponse, error) {
-
-	var v bot.Job
+	v := bot.Job{ID: ulid.Make()}
 	if err := json.Unmarshal([]byte(body), &v); err != nil {
 		return api.BadRequest(err)
-	} else if err = v.Validate(); err != nil {
-		return api.BadRequest(err)
 	}
-
-	if v.ID = id.NewULID(); v.Name == "" {
-		v.Name = v.ID.String()
-	}
-	v.CreatedAt = bot.NewTimeStamp()
-	v.UpdatedAt = bot.NewTimeStamp()
-
-	if err := entity.New(ctx).Value(&v).Save(); err != nil {
-		return api.ServerError(err)
-	}
-
-	return api.OK(&v)
+	return handleSave(ctx, v)
 }
 
 func handlePut(ctx context.Context, body string) (events.LambdaFunctionURLResponse, error) {
 	var v bot.Job
 	if err := json.Unmarshal([]byte(body), &v); err != nil {
 		return api.BadRequest(err)
-	} else if err = v.Validate(); err != nil {
-		return api.BadRequest(err)
 	}
-	v.UpdatedAt = bot.NewTimeStamp()
-	if err := entity.New(ctx).Value(&v).Save(); err != nil {
+	return handleSave(ctx, v)
+}
+
+func handleSave(ctx context.Context, j bot.Job) (events.LambdaFunctionURLResponse, error) {
+	if err := j.Validate(); err != nil {
+		return api.BadRequest(err)
+	} else if j.ID.IsZero() {
+		return api.BadRequest(errors.New("job id can not be empty"))
+	} else if err = entity.New(ctx).Value(&j).Save(); err != nil {
 		return api.ServerError(err)
 	}
-	return api.OK(&v)
+	return api.OK(&j)
 }
 
 func handleGet(ctx context.Context, size string) (events.LambdaFunctionURLResponse, error) {

@@ -21,9 +21,16 @@ func TestSave(t *testing.T) {
 }
 
 func TestFind(t *testing.T) {
-	v := FooBar{}
-	if err := New(ctx).Value(&v).ID("01K30DA8S6HSF4F966V1BA67ZY").Find(); err != nil {
+	id := ulid.Make()
+
+	_ = New().Value(&FooBar{ID: id}).Save()
+
+	var v FooBar
+	if err := New(ctx).Value(&v).ID(id).Find(); err != nil {
 		t.Error(err)
+	}
+	if v.ID != id {
+		t.Errorf("want %s, got %s", id, v.ID)
 	}
 }
 

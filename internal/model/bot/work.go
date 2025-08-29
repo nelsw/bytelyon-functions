@@ -1,69 +1,86 @@
 package bot
 
 import (
-	"bytelyon-functions/internal/entity"
-	"bytelyon-functions/internal/model/id"
 	"encoding/xml"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
+	"regexp"
 	"strings"
 
 	"github.com/oklog/ulid/v2"
 	"github.com/rs/zerolog/log"
 )
 
-type Work struct {
-	ID       ulid.ULID `json:"id"`
-	JobID    ulid.ULID `json:"job_id"`
-	Root     string    `json:"root"`
-	Keywords []string  `json:"keywords"`
-	Items    []Item    `json:"items"`
+var bingRegexp *regexp.Regexp
+
+func init() {
+	bingRegexp = regexp.MustCompile("</?News(:\\w+)>")
 }
 
-func createWorkItems(ID ulid.ULID, t JobType, u string, keys []string) (err error) {
+type Work struct {
+	ID    ulid.ULID `json:"id"`
+	Job   Job       `json:"job"`
+	Items Items     `json:"items"`
+	Err   error     `json:"error"`
+}
 
-	u = fmt.Sprintf(u, strings.Join(keys, ","))
+func NewWork(j Job) Work {
 
-	var res *http.Response
-	if res, err = http.Get(u); err != nil {
-		log.Error().Err(err).Str("URL", u).Str("ID", ID.String()).Msg("failed to http.Get url")
-		return
-	}
-	defer res.Body.Close()
-
-	var b []byte
-	if b, err = io.ReadAll(res.Body); err != nil {
-		log.Error().Err(err).Str("ID", ID.String()).Msg("failed to io.ReadAll response body")
-		return
+	w := Work{
+		ID:  ulid.Make(),
+		Job: j,
 	}
 
-	b = t.Sanitize(b)
-
-	var rss RSS
-	if err = xml.Unmarshal(b, &rss); err != nil {
-		log.Error().Err(err).Str("ID", ID.String()).Msg("failed to unmarshal xml")
-		return
+	switch j.Type {
+	case NewsJobType:
+		w.Items, w.Err = workNews(j)
+	default:
+		w.Err = errors.New(fmt.Sprintf("unknown job type [%d]", j.Type))
 	}
 
-	log.Info().Int("size", len(rss.Channel.Items)).Msg("work items found")
+	return w
+}
 
-	if len(rss.Channel.Items) == 0 {
-		return
+func workNews(j Job) (items Items, err error) {
+
+	f := func(u string) (Items, error) {
+		u = fmt.Sprintf(u, strings.Join(j.Keywords, ","))
+		res, e := http.Get(u)
+		if e != nil {
+			return nil, errors.Join(errors.New("failed to http.Get url"), e)
+		}
+		defer res.Body.Close()
+
+		var b []byte
+		if b, e = io.ReadAll(res.Body); e != nil {
+			return nil, errors.Join(errors.New("failed to io.ReadAll response body"), e)
+		}
+
+		if strings.Contains(u, "https://www.bing.com/") {
+			str := bingRegexp.ReplaceAllStringFunc(string(b), func(s string) string {
+				return strings.ReplaceAll(s, ":", "_")
+			})
+			b = []byte(str)
+		}
+
+		var rss RSS
+		if e = xml.Unmarshal(b, &rss); e != nil {
+			return nil, errors.Join(errors.New("failed to unmarshal xml"), e)
+		}
+
+		return rss.Channel.Items, nil
 	}
 
-	work := Work{
-		ID:       id.NewULID(),
-		JobID:    ID,
-		Items:    rss.Channel.Items,
-		Root:     u,
-		Keywords: keys,
+	for _, u := range j.Type.URLs() {
+		ii, e := f(u)
+		err = errors.Join(err, e)
+		if ii != nil {
+			items = append(items, ii...)
+		}
+		log.Err(e).Any("job", j).Array("items", ii).Send()
 	}
-	if err = entity.New().Value(&work).Save(); err != nil {
-		return
-	}
-
-	log.Info().Str("workID", work.ID.String()).Msg("work items created")
 
 	return
 }

@@ -4,6 +4,8 @@ import (
 	"encoding/xml"
 	"strings"
 	"time"
+
+	"github.com/rs/zerolog"
 )
 
 type DateTime time.Time
@@ -34,8 +36,16 @@ func (v *DateTime) MarshalJSON() ([]byte, error) {
 
 type RSS struct {
 	Channel struct {
-		Items []Item `xml:"item"`
+		Items Items `xml:"item"`
 	} `xml:"channel"`
+}
+
+type Items []Item
+
+func (ii Items) MarshalZerologArray(a *zerolog.Array) {
+	for _, i := range ii {
+		a.Object(i)
+	}
 }
 
 type Item struct {
@@ -51,4 +61,8 @@ type Item struct {
 	NewsImageSize      string `json:"news_image_size,omitempty" xml:"News_ImageSize"`
 	NewsImageMaxWidth  int    `json:"news_image_max_width,omitempty" xml:"News_ImageMaxWidth"`
 	NewsImageMaxHeight int    `json:"news_image_max_height,omitempty" xml:"News_ImageMaxHeight"`
+}
+
+func (i Item) MarshalZerologObject(e *zerolog.Event) {
+	e.Str("title", i.Title).Str("url", i.Link)
 }

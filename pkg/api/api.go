@@ -4,9 +4,17 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"os"
+	"regexp"
 
 	"github.com/aws/aws-lambda-go/events"
 )
+
+var appModeRegex *regexp.Regexp
+
+func init() {
+	appModeRegex = regexp.MustCompile("^(local|debug)$")
+}
 
 func Log(v ...interface{}) {
 	if v == nil || len(v) == 0 {
@@ -24,6 +32,9 @@ func Log(v ...interface{}) {
 }
 
 func LogMap(m map[string]interface{}) {
+	if appModeRegex.MatchString(os.Getenv("APP_MODE")) {
+		return
+	}
 	b, _ := json.Marshal(m)
 	log.Println(string(b))
 }

@@ -1,8 +1,6 @@
 package user
 
 import (
-	"time"
-
 	"github.com/oklog/ulid/v2"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -16,10 +14,9 @@ const (
 )
 
 type User struct {
-	ID        ulid.ULID  `json:"id"`
-	Email     string     `json:"email"`
-	CreatedAt time.Time  `json:"created_at"`
-	Roles     []RoleType `json:"roles"`
+	ID    ulid.ULID  `json:"id"`
+	Email string     `json:"email"`
+	Roles []RoleType `json:"roles"`
 }
 
 type Profile struct {

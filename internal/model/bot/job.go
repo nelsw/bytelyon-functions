@@ -2,78 +2,53 @@ package bot
 
 import (
 	"bytelyon-functions/internal/entity"
-	"errors"
 	"fmt"
-	"regexp"
-	"strings"
 	"time"
 
 	"github.com/oklog/ulid/v2"
+	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 )
 
 type JobType int
 
 const (
-	Custom JobType = iota + 1
-	GoogleNews
-	BingNews
+	NewsJobType JobType = iota + 1
 )
+
+var JobTypes = map[JobType]string{
+	NewsJobType: "news",
+}
 
 func (v JobType) URLs() []string {
 	switch v {
-	case GoogleNews:
-		return []string{"https://news.google.com/rss/search?q=%s&hl=en-US&gl=US&ceid=US:en"}
-	case BingNews:
-		return []string{"https://www.bing.com/search?format=rss&q=", "https://www.bing.com/news/search?format=rss&q="}
+	case NewsJobType:
+		return []string{
+			"https://news.google.com/rss/search?q=%s&hl=en-US&gl=US&ceid=US:en",
+			"https://www.bing.com/news/search?format=rss&q=%s",
+			"https://www.bing.com/search?format=rss&q=%s",
+		}
 	default:
 		return nil
 	}
 }
 
-func (v JobType) Sanitize(b []byte) []byte {
-
-	if v != BingNews {
-		return b
-	}
-
-	reg := regexp.MustCompile("</?News(:\\w+)>")
-	str := reg.ReplaceAllStringFunc(string(b), func(s string) string {
-		return strings.ReplaceAll(s, ":", "_")
-	})
-
-	return []byte(str)
-}
-
 type Job struct {
-	ID        ulid.ULID `json:"id"`
-	Name      string    `json:"name"`
+	ID        ulid.ULID `json:"id" fake:"skip"`
+	Worked    ulid.ULID `json:"worked" fake:"skip"`
 	Type      JobType   `json:"type"`
-	Keywords  []string  `json:"keywords"`
 	Frequency Frequency `json:"frequency"`
-	Error     error     `json:"error"`
-	LastRunAt Timestamp `json:"last_run_at"`
-	CreatedAt Timestamp `json:"created_at"`
-	UpdatedAt Timestamp `json:"updated_at"`
+	Err       error     `json:"error" fake:"skip"`
+	Name      string    `json:"name"`
+	Desc      string    `json:"description"`
+	URLs      []string  `json:"urls"`
+	Keywords  []string  `json:"keywords"`
 }
 
-type Timestamp struct {
-	UTC   time.Time `json:"utc"`
-	Unix  int64     `json:"unix"`
-	Human string    `json:"human"`
-}
-
-func NewTimeStamp() Timestamp {
-	t := time.Now().UTC()
-	return Timestamp{
-		UTC:   t,
-		Unix:  t.Unix(),
-		Human: t.Format("01/02/06 3:04PM"),
-	}
-}
-
-func (t Timestamp) BeforeNow(d time.Duration) bool {
-	return t.UTC.Add(d).Before(time.Now().UTC())
+func (j Job) MarshalZerologObject(e *zerolog.Event) {
+	e.Stringer("id", j.ID).
+		Str("type", JobTypes[j.Type]).
+		Err(j.Err)
 }
 
 type FrequencyUnit string
@@ -84,10 +59,10 @@ const (
 	Day    FrequencyUnit = "d"
 )
 
-var FrequencyUnits = map[string]FrequencyUnit{
-	string(Minute): Minute,
-	string(Hour):   Hour,
-	string(Day):    Day,
+var FrequencyUnits = map[FrequencyUnit]time.Duration{
+	Minute: time.Minute,
+	Hour:   time.Hour,
+	Day:    time.Hour * 24,
 }
 
 type Frequency struct {
@@ -96,50 +71,33 @@ type Frequency struct {
 }
 
 func (f Frequency) Duration() time.Duration {
-	if f.Unit == Minute {
-		return time.Minute * time.Duration(f.Value)
-	} else if f.Unit == Hour {
-		return time.Hour * time.Duration(f.Value)
-	} else { // day
-		return time.Hour * 24 * time.Duration(f.Value)
-	}
+	return FrequencyUnits[f.Unit] * time.Duration(f.Value)
 }
 
-func (v *Job) Validate() error {
-	if v.Type == 0 {
+func (j Job) Validate() error {
+	if _, ok := JobTypes[j.Type]; !ok {
 		return fmt.Errorf("job type must be set")
-	} else if len(v.Keywords) == 0 {
+	} else if len(j.Keywords) == 0 {
 		return fmt.Errorf("job keywords must be set")
-	} else if _, ok := FrequencyUnits[string(v.Frequency.Unit)]; !ok {
+	} else if _, ok = FrequencyUnits[j.Frequency.Unit]; !ok {
 		return fmt.Errorf("job frequency must be one of: [m, h, d]")
 	}
 	return nil
 }
 
-func (v *Job) Ready() bool {
-	return v.LastRunAt.BeforeNow(v.Frequency.Duration())
+func (j Job) Ready() bool {
+	now := time.Now().UTC()
+	dur := j.Frequency.Duration()
+	return j.Worked.Timestamp().Add(dur).Before(now)
 }
 
-func (v *Job) CreateWork() error {
+func (j Job) CreateWork() error {
 
-	log.Info().Str("ID", v.ID.String()).Msg("creating work")
-	if v.Type == Custom {
-		v.Error = errors.New("custom job not supported yet")
-	} else {
-		for _, u := range v.Type.URLs() {
-			if v.Error = createWorkItems(v.ID, v.Type, u, v.Keywords); v.Error != nil {
-				break
-			}
-		}
-	}
+	w := NewWork(j)
+	j.Worked = w.ID
+	j.Err = entity.New().Value(&w).Save()
 
-	v.UpdatedAt = NewTimeStamp()
-	if err := entity.New().Value(v).Save(); err != nil {
-		log.Error().Err(err).Str("ID", v.ID.String()).Msg("failed to update job last run time")
-		return err
-	}
+	log.Err(j.Err).Any("job", j).Msg("worked")
 
-	log.Info().Str("ID", v.ID.String()).Msg("job updated")
-
-	return nil
+	return entity.New().Value(&j).Save()
 }

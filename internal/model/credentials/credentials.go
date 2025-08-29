@@ -1,16 +1,13 @@
 package credentials
 
 import (
-	ulid2 "bytelyon-functions/internal/model/id"
 	"bytelyon-functions/internal/model/user"
 	"encoding/base64"
 	"errors"
 	"net/mail"
 	"strings"
-	"time"
 	"unicode"
 
-	"github.com/google/uuid"
 	"github.com/oklog/ulid/v2"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -71,10 +68,9 @@ func NewCredentials(token string) (*Credentials, error) {
 
 func (c *Credentials) NewUser() *user.User {
 	return &user.User{
-		ID:        ulid2.NewULID(),
-		Email:     c.Email,
-		CreatedAt: time.Now(),
-		Roles:     []user.RoleType{user.Basic},
+		ID:    ulid.Make(),
+		Email: c.Email,
+		Roles: []user.RoleType{user.Basic},
 	}
 }
 
@@ -86,7 +82,7 @@ func (c *Credentials) NewEmail(userID ulid.ULID) *user.Email {
 	return &user.Email{
 		ID:     c.Email,
 		UserID: userID,
-		Token:  uuid.New().String(),
+		Token:  ulid.Make().String(),
 	}
 }
 
