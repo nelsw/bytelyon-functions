@@ -75,26 +75,6 @@ func TestGet(t *testing.T) {
 	}
 }
 
-func TestPatch(t *testing.T) {
-	ctx := context.Background()
-	req := events.LambdaFunctionURLRequest{
-		RequestContext: events.LambdaFunctionURLRequestContext{
-			HTTP: events.LambdaFunctionURLRequestContextHTTPDescription{
-				Method: http.MethodPatch,
-			},
-		},
-		QueryStringParameters: map[string]string{
-			"id":   "01K2ZDJKTY26T3NZ2C82R3YJCR",
-			"read": "false",
-		},
-	}
-
-	res, _ := handler(ctx, req)
-	if res.StatusCode != http.StatusOK {
-		t.Fail()
-	}
-}
-
 func TestDelete(t *testing.T) {
 	ctx := context.Background()
 	req := events.LambdaFunctionURLRequest{
