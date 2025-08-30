@@ -29,7 +29,11 @@ func (j Job) Path() string {
 }
 
 func (j Job) Validate() error {
-	if _, ok := JobTypes[j.Type]; !ok {
+	if j.ID.IsZero() {
+		return fmt.Errorf("job id is not set")
+	} else if j.UserID.IsZero() {
+		return fmt.Errorf("user id is not set")
+	} else if _, ok := JobTypes[j.Type]; !ok {
 		return fmt.Errorf("job type must be set")
 	} else if len(j.Keywords) == 0 {
 		return fmt.Errorf("job keywords must be set")

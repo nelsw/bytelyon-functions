@@ -3,7 +3,6 @@ package main
 import (
 	"bytelyon-functions/pkg/api"
 	"context"
-	"net/http"
 
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
@@ -13,21 +12,12 @@ func handler(ctx context.Context, req events.LambdaFunctionURLRequest) (events.L
 
 	api.LogURLRequest(req)
 
-	switch req.RequestContext.HTTP.Method {
-	case http.MethodOptions:
-		return api.Response(http.StatusOK, "")
-	case http.MethodPost:
-		if req.QueryStringParameters["forgot"] == "true" {
-			return api.Response(http.StatusNotImplemented, "Forgot password not implemented")
-		} else if req.QueryStringParameters["login"] == "true" {
-			return handleLogin(ctx, req.Headers["authorization"])
-		} else if req.QueryStringParameters["signup"] == "true" {
-			return api.Response(http.StatusNotImplemented, "Signup not implemented")
-		}
-		fallthrough
-	default:
-		return api.Response(http.StatusNotImplemented, "Method not implemented: "+req.RequestContext.HTTP.Method)
+	if api.IsOptions(req) {
+		return api.OK()
+	} else if api.IsPost(req) {
+
 	}
+	return api.NotImplemented("Method not implemented: " + req.RequestContext.HTTP.Method)
 }
 
 func handleLogin(ctx context.Context, token string) (events.LambdaFunctionURLResponse, error) {
@@ -42,7 +32,7 @@ func handleLogin(ctx context.Context, token string) (events.LambdaFunctionURLRes
 	//	return api.Response(http.StatusBadRequest, "email not found")
 	//}
 
-	return api.Response(http.StatusNotImplemented, "Method not implemented: LOGIN")
+	return api.OK()
 
 	//return api.Response(http.StatusOK, auth.NewToken(map[string]interface{}{
 	//	"email":          u.Email,
@@ -75,7 +65,7 @@ func handleSignup(ctx context.Context, token string) (events.LambdaFunctionURLRe
 	//	return api.Response(http.StatusInternalServerError, err.Error())
 	//}
 
-	return api.Response(http.StatusOK, "")
+	return api.OK()
 }
 
 func main() {

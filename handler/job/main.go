@@ -50,8 +50,6 @@ func handleSave(ctx context.Context, body string, j model.Job) (events.LambdaFun
 		return api.BadRequest(err)
 	} else if err = j.Validate(); err != nil {
 		return api.BadRequest(err)
-	} else if j.ID.IsZero() {
-		return api.BadRequest(errors.New("job id can not be empty"))
 	} else if err = entity.New(ctx).Value(&j).Save(); err != nil {
 		return api.ServerError(err)
 	}
