@@ -2,7 +2,7 @@ package main
 
 import (
 	"bytelyon-functions/internal/entity"
-	"bytelyon-functions/internal/model/bot"
+	"bytelyon-functions/internal/model"
 	"bytelyon-functions/pkg/api"
 	"context"
 	"encoding/json"
@@ -13,7 +13,6 @@ import (
 
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
-	"github.com/oklog/ulid/v2"
 )
 
 func handler(ctx context.Context, req events.LambdaFunctionURLRequest) (events.LambdaFunctionURLResponse, error) {
@@ -24,11 +23,11 @@ func handler(ctx context.Context, req events.LambdaFunctionURLRequest) (events.L
 	case http.MethodPatch:
 		return handlePatch(ctx, req.QueryStringParameters["id"])
 	case http.MethodPost:
-		return handlePost(ctx, req.Body)
+		return handleSave(ctx, req.Body, model.Job{ID: model.NewUlid()})
 	case http.MethodGet:
 		return handleGet(ctx, req.QueryStringParameters["size"])
 	case http.MethodPut:
-		return handlePut(ctx, req.Body)
+		return handleSave(ctx, req.Body, model.Job{})
 	case http.MethodDelete:
 		return handleDelete(ctx, req.QueryStringParameters["ids"])
 	default:
@@ -37,7 +36,7 @@ func handler(ctx context.Context, req events.LambdaFunctionURLRequest) (events.L
 }
 
 func handlePatch(ctx context.Context, id string) (events.LambdaFunctionURLResponse, error) {
-	var v bot.Job
+	var v model.Job
 	if err := entity.New(ctx).Value(&v).ID(id).Find(); err != nil {
 		return api.BadRequest(err)
 	} else if err = v.CreateWork(); err != nil {
@@ -46,24 +45,10 @@ func handlePatch(ctx context.Context, id string) (events.LambdaFunctionURLRespon
 	return api.OK()
 }
 
-func handlePost(ctx context.Context, body string) (events.LambdaFunctionURLResponse, error) {
-	v := bot.Job{ID: ulid.Make()}
-	if err := json.Unmarshal([]byte(body), &v); err != nil {
+func handleSave(ctx context.Context, body string, j model.Job) (events.LambdaFunctionURLResponse, error) {
+	if err := json.Unmarshal([]byte(body), &j); err != nil {
 		return api.BadRequest(err)
-	}
-	return handleSave(ctx, v)
-}
-
-func handlePut(ctx context.Context, body string) (events.LambdaFunctionURLResponse, error) {
-	var v bot.Job
-	if err := json.Unmarshal([]byte(body), &v); err != nil {
-		return api.BadRequest(err)
-	}
-	return handleSave(ctx, v)
-}
-
-func handleSave(ctx context.Context, j bot.Job) (events.LambdaFunctionURLResponse, error) {
-	if err := j.Validate(); err != nil {
+	} else if err = j.Validate(); err != nil {
 		return api.BadRequest(err)
 	} else if j.ID.IsZero() {
 		return api.BadRequest(errors.New("job id can not be empty"))
@@ -80,8 +65,8 @@ func handleGet(ctx context.Context, size string) (events.LambdaFunctionURLRespon
 		n = 10
 	}
 
-	var vv []bot.Job
-	if err = entity.New(ctx).Value(bot.Job{}).Type(&vv).Page(int32(n)); err != nil {
+	var vv []model.Job
+	if err = entity.New(ctx).Value(model.Job{}).Type(&vv).Page(int32(n)); err != nil {
 		return api.ServerError(err)
 	}
 
@@ -92,14 +77,16 @@ func handleGet(ctx context.Context, size string) (events.LambdaFunctionURLRespon
 }
 
 func handleDelete(ctx context.Context, ids string) (events.LambdaFunctionURLResponse, error) {
-	var j bot.Job
-	m := map[string]string{}
+	var err error
 	for _, v := range strings.Split(ids, ",") {
-		if err := entity.New(ctx).Value(&j).ID(v).Delete(); err != nil {
-			m[v] = err.Error()
+		if e := entity.New(ctx).Value(&model.Job{}).ID(v).Delete(); e != nil {
+			err = errors.Join(err, e)
 		}
 	}
-	return api.OK(map[string]interface{}{"errors": m})
+	if err != nil {
+		return api.BadRequest(err)
+	}
+	return api.OK()
 }
 
 func main() {

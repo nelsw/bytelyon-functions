@@ -2,7 +2,7 @@ package main
 
 import (
 	"bytelyon-functions/internal/entity"
-	"bytelyon-functions/internal/model/bot"
+	"bytelyon-functions/internal/model"
 	"bytelyon-functions/pkg/api"
 	"context"
 	"net/http"
@@ -36,15 +36,15 @@ func handleGet(ctx context.Context, size string) (events.LambdaFunctionURLRespon
 		n = 10
 	}
 
-	var vv []bot.Work
-	if err = entity.New(ctx).Value(bot.Work{}).Type(&vv).Page(int32(n)); err != nil {
+	var vv []model.Work
+	if err = entity.New(ctx).Value(model.Work{}).Type(&vv).Page(int32(n)); err != nil {
 		return api.ServerError(err)
 	}
 	return api.OK(&vv)
 }
 
 func handleDelete(ctx context.Context, ids string) (events.LambdaFunctionURLResponse, error) {
-	var v bot.Work
+	var v model.Work
 	m := map[string]string{}
 	for _, id := range strings.Split(ids, ",") {
 		if err := entity.New(ctx).Value(&v).ID(id).Delete(); err != nil {

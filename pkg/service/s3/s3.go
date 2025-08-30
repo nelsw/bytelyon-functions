@@ -3,6 +3,7 @@ package s3
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"io"
 	"log"
 
@@ -59,7 +60,7 @@ func (c *Client) Get(ctx context.Context, bucket, key string) ([]byte, error) {
 			log.Fatal(err)
 		}
 	}(out.Body)
-
+	fmt.Println(out.Metadata)
 	return io.ReadAll(out.Body)
 }
 
@@ -68,7 +69,9 @@ func (c *Client) Put(ctx context.Context, bucket, key string, data []byte) error
 		Bucket: &bucket,
 		Key:    &key,
 		Body:   bytes.NewReader(data),
-	})
+		Metadata: map[string]string{
+			"foo": "bar",
+		}})
 	return err
 }
 

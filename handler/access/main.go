@@ -1,12 +1,7 @@
 package main
 
 import (
-	"bytelyon-functions/internal/entity"
-	"bytelyon-functions/internal/model/auth"
-	"bytelyon-functions/internal/model/credentials"
-	"bytelyon-functions/internal/model/user"
 	"bytelyon-functions/pkg/api"
-	"bytelyon-functions/pkg/service/ses"
 	"context"
 	"net/http"
 
@@ -37,61 +32,48 @@ func handler(ctx context.Context, req events.LambdaFunctionURLRequest) (events.L
 
 func handleLogin(ctx context.Context, token string) (events.LambdaFunctionURLResponse, error) {
 
-	c, err := credentials.NewCredentials(token)
-	if err != nil {
-		return api.Response(http.StatusBadRequest, err.Error())
-	}
+	//c, err := model.NewCredentials(token)
+	//if err != nil {
+	//	return api.Response(http.StatusBadRequest, err.Error())
+	//}
+	//
+	//var email model.Email
+	//if err = entity.New(ctx).Value(&email).ID(c.Email).Find(); err != nil {
+	//	return api.Response(http.StatusBadRequest, "email not found")
+	//}
 
-	var email user.Email
-	if err = entity.New(ctx).Value(&email).ID(c.Email).Find(); err != nil {
-		return api.Response(http.StatusBadRequest, "email not found")
-	}
+	return api.Response(http.StatusNotImplemented, "Method not implemented: LOGIN")
 
-	var password user.Password
-	if err = entity.New(ctx).Value(&password).ID(email.UserID).Find(); err != nil {
-		return api.Response(http.StatusBadRequest, err.Error())
-	} else if err = password.Validate(c.Password); err != nil {
-		return api.Response(http.StatusUnauthorized, "incorrect password")
-	}
-
-	var u user.User
-	if err = entity.New(ctx).Value(&u).ID(email.UserID).Find(); err != nil {
-		return api.Response(http.StatusBadRequest, err.Error())
-	}
-
-	var up user.Profile
-	_ = entity.New(ctx).Value(&up).ID(email.UserID).Find()
-
-	return api.Response(http.StatusOK, auth.NewToken(map[string]interface{}{
-		"email":          u.Email,
-		"email_verified": email.Verified,
-		"name":           up.Name,
-		"image":          up.Image,
-	}))
+	//return api.Response(http.StatusOK, auth.NewToken(map[string]interface{}{
+	//	"email":          u.Email,
+	//	"email_verified": email.Verified,
+	//	"name":           up.Name,
+	//	"image":          up.Image,
+	//}))
 }
 
 func handleSignup(ctx context.Context, token string) (events.LambdaFunctionURLResponse, error) {
 
-	c, err := credentials.NewCredentials(token)
-	if err != nil {
-		return api.Response(http.StatusBadRequest, err.Error())
-	}
-
-	u := c.NewUser()
-	if err = entity.New(ctx).Value(u).Save(); err != nil {
-		return api.Response(http.StatusInternalServerError, err.Error())
-	} else if err = entity.New(ctx).Value(c.NewUserProfile(u.ID)).Save(); err != nil {
-		return api.Response(http.StatusInternalServerError, err.Error())
-	} else if err = entity.New(ctx).Value(c.NewPassword(u.ID)).Save(); err != nil {
-		return api.Response(http.StatusInternalServerError, err.Error())
-	}
-
-	e := c.NewEmail(u.ID)
-	if err = entity.New(ctx).Value(e).Save(); err != nil {
-		return api.Response(http.StatusInternalServerError, err.Error())
-	} else if err = ses.New(ctx).VerifyEmail(ctx, c.Email, e.Token); err != nil {
-		return api.Response(http.StatusInternalServerError, err.Error())
-	}
+	//c, err := model.NewCredentials(token)
+	//if err != nil {
+	//	return api.Response(http.StatusBadRequest, err.Error())
+	//}
+	//
+	//u := c.NewUser()
+	//if err = entity.New(ctx).Value(u).Save(); err != nil {
+	//	return api.Response(http.StatusInternalServerError, err.Error())
+	//} else if err = entity.New(ctx).Value(c.NewUserProfile(u.ID)).Save(); err != nil {
+	//	return api.Response(http.StatusInternalServerError, err.Error())
+	//} else if err = entity.New(ctx).Value(c.NewPassword(u.ID)).Save(); err != nil {
+	//	return api.Response(http.StatusInternalServerError, err.Error())
+	//}
+	//
+	//e := c.NewEmail(u.ID)
+	//if err = entity.New(ctx).Value(e).Save(); err != nil {
+	//	return api.Response(http.StatusInternalServerError, err.Error())
+	//} else if err = ses.New(ctx).VerifyEmail(ctx, c.Email, e.Token); err != nil {
+	//	return api.Response(http.StatusInternalServerError, err.Error())
+	//}
 
 	return api.Response(http.StatusOK, "")
 }

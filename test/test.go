@@ -74,7 +74,7 @@ type methodable interface {
 	Delete(string) Actable
 	Get() Actable
 	Options() Actable
-	Patch(any) Actable
+	Patch() Actable
 	Post(any) Actable
 	Put(any) Actable
 }
@@ -92,8 +92,8 @@ func (h *helper) Get() Actable {
 func (h *helper) Options() Actable {
 	return h.Method(http.MethodOptions)
 }
-func (h *helper) Patch(a any) Actable {
-	return h.Body(a).Method(http.MethodPatch)
+func (h *helper) Patch() Actable {
+	return h.Method(http.MethodPatch)
 }
 func (h *helper) Post(a any) Actable {
 	return h.Body(a).Method(http.MethodPost)
@@ -195,5 +195,13 @@ type responser struct {
 
 func New(t *testing.T) Helper {
 	t.Setenv("APP_MODE", "local")
-	return &helper{tester{t: t}, requester{}, responser{}}
+	return &helper{
+		tester{t: t},
+		requester{
+			ctx:     context.Background(),
+			headers: map[string]string{},
+			params:  map[string]string{},
+		},
+		responser{},
+	}
 }

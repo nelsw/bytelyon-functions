@@ -1,7 +1,8 @@
 package main
 
 import (
-	"bytelyon-functions/internal/model/bot"
+	"bytelyon-functions/internal/entity"
+	"bytelyon-functions/internal/model"
 	"bytelyon-functions/test"
 	"context"
 	"encoding/json"
@@ -15,7 +16,7 @@ import (
 func TestPost(t *testing.T) {
 	m := map[string]interface{}{
 		"name":     gofakeit.Name(),
-		"type":     bot.NewsJobType,
+		"type":     model.NewsJobType,
 		"keywords": []string{"ford", "bronco"},
 		"frequency": map[string]interface{}{
 			"unit":  "h",
@@ -58,4 +59,26 @@ func TestGet(t *testing.T) {
 	if n != len(m["items"].([]interface{})) {
 		t.Errorf("got size %d, want %d", n, len(m["items"].([]interface{})))
 	}
+}
+
+func TestPatch(t *testing.T) {
+	j := model.Job{
+		ID:   model.NewUlid(),
+		Type: model.NewsJobType,
+		Frequency: model.Frequency{
+			Unit:  "h",
+			Value: 6,
+		},
+		Name: gofakeit.HipsterWord(),
+		Desc: gofakeit.HipsterSentence(3),
+		Keywords: []string{
+			"GMC", "Sierra",
+		},
+	}
+
+	_ = entity.New().Value(&j).Save()
+
+	test.New(t).Param("id", j.ID.String()).Patch().
+		Handle(handler).
+		OK()
 }
