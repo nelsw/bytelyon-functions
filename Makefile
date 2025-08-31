@@ -71,7 +71,7 @@ publish:
     		--statement-id FunctionURLAllowPublicAccess \
     		--function-url-auth-type NONE > /dev/null
 	@printf "  ✅\n"
-	@make url ${name}
+	@make url
 
 unpublish:
 	@printf "➜  %s  %s [\033[35m./handler/%s\033[0m]" "⛔️" "unpublish" ${name}
