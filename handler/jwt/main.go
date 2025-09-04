@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytelyon-functions/internal/model"
 	"encoding/json"
 	"os"
 	"time"
@@ -10,57 +11,20 @@ import (
 	"github.com/google/uuid"
 )
 
-type Claims struct {
-	Data any `json:"data"`
-	jwt.RegisteredClaims
-}
+func handler(req model.JWTRequest) (res model.JWTResponse, err error) {
 
-type Request struct {
-	Type  RequestType `json:"type"`
-	Data  any         `json:"data"`
-	Token string      `json:"token"`
-}
-
-type Response struct {
-	Claims []byte `json:"claims"`
-	Token  string `json:"token"`
-	Error  error  `json:"error"`
-}
-
-type RequestType int
-
-const (
-	Validation RequestType = iota + 1
-	Creation
-)
-
-type invalidTypeError struct{}
-
-func (invalidTypeError) Error() string {
-	return "invalid request type; must be 1 (validation), 2 (creation)"
-}
-
-var InvalidRequestType error = invalidTypeError{}
-
-func handler(req Request) Response {
-
-	if req.Type == Validation {
-
-		tkn, err := jwt.ParseWithClaims(req.Token, &Claims{}, func(token *jwt.Token) (any, error) {
+	if req.Type == model.JWTValidation {
+		var tkn *jwt.Token
+		if tkn, err = jwt.ParseWithClaims(req.Token, &model.JWTClaims{}, func(token *jwt.Token) (any, error) {
 			return []byte(os.Getenv("JWT_SECRET")), nil
-		})
-
-		if err != nil {
-			return Response{Error: err}
+		}); err == nil {
+			res.Claims, err = json.Marshal(tkn.Claims.(*model.JWTClaims))
 		}
-
-		var res Response
-		res.Claims, res.Error = json.Marshal(tkn.Claims.(*Claims))
-		return res
+		return
 	}
 
-	if req.Type == Creation {
-		tkn, err := jwt.NewWithClaims(jwt.SigningMethodHS256, Claims{
+	if req.Type == model.JWTCreation {
+		res.Token, err = jwt.NewWithClaims(jwt.SigningMethodHS256, model.JWTClaims{
 			Data: req.Data,
 			RegisteredClaims: jwt.RegisteredClaims{
 				Issuer:    os.Getenv("APP_NAME"),
@@ -70,11 +34,12 @@ func handler(req Request) Response {
 				ID:        uuid.NewString(),
 			},
 		}).SignedString([]byte(os.Getenv("JWT_SECRET")))
-
-		return Response{Token: tkn, Error: err}
+		return
 	}
 
-	return Response{Error: InvalidRequestType}
+	err = model.JWTRequestTypeError
+
+	return
 }
 
 func main() {

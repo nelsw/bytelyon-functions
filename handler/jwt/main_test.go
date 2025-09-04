@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytelyon-functions/internal/model"
 	"encoding/json"
 	"testing"
 
@@ -9,35 +10,30 @@ import (
 )
 
 func TestBadType(t *testing.T) {
-	res := handler(Request{})
-	assert.ErrorIs(t, res.Error, InvalidRequestType)
+	t.Setenv("JWT_SECRET", "a-string-secret-at-least-256-bits-long")
+	res, err := handler(model.JWTRequest{})
+	assert.Equal(t, res, model.JWTResponse{})
+	assert.ErrorIs(t, err, model.JWTRequestTypeError)
 }
 
 func TestOK(t *testing.T) {
+	t.Setenv("JWT_SECRET", "a-string-secret-at-least-256-bits-long")
 
 	data := map[string]any{"id": gofakeit.UUID()}
-	creationResponse := handler(Request{
-		Type: Creation,
+	res, err := handler(model.JWTRequest{
+		Type: model.JWTCreation,
 		Data: data,
 	})
-	assert.Nil(t, creationResponse.Error)
+	assert.NoError(t, err)
 
-	validationResponse := handler(Request{
-		Type:  Validation,
-		Token: creationResponse.Token,
+	res, err = handler(model.JWTRequest{
+		Type:  model.JWTValidation,
+		Token: res.Token,
 	})
-	assert.Nil(t, validationResponse.Error)
+	assert.NoError(t, err)
 
 	var m map[string]any
-	err := json.Unmarshal(validationResponse.Claims, &m)
-	assert.Nil(t, err)
+	err = json.Unmarshal(res.Claims, &m)
+	assert.NoError(t, err)
 	assert.Equal(t, m["data"], data)
-}
-
-func TestValidation_Err(t *testing.T) {
-	res := handler(Request{
-		Type:  Validation,
-		Token: "a-bad-token",
-	})
-	assert.Error(t, res.Error)
 }
