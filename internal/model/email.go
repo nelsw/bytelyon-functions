@@ -18,18 +18,6 @@ type Email struct {
 	Token    ulid.ULID `json:"token"`
 }
 
-func NewEmail(u *User, s string) (*Email, error) {
-	e := &Email{
-		UserID: u.ID,
-		ID:     s,
-		Token:  NewUlid(),
-	}
-	if err := e.Validate(); err != nil {
-		return nil, err
-	}
-	return e, nil
-}
-
 func (e *Email) Validate() error {
 	if _, err := mail.ParseAddress(e.ID); err != nil {
 		return errors.Join(err, errors.New("invalid email address"))

@@ -2,7 +2,6 @@ package main
 
 import (
 	"bytelyon-functions/internal/model"
-	"bytelyon-functions/pkg/entity"
 	"bytelyon-functions/test"
 	"context"
 	"encoding/json"
@@ -75,8 +74,6 @@ func TestPatch(t *testing.T) {
 			"GMC", "Sierra",
 		},
 	}
-
-	_ = entity.New().Value(&j).Save()
 
 	test.New(t).Param("id", j.ID.String()).Patch().
 		Handle(handler).

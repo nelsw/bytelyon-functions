@@ -2,7 +2,6 @@ package main
 
 import (
 	"bytelyon-functions/internal/model"
-	"encoding/json"
 	"os"
 	"time"
 
@@ -18,7 +17,7 @@ func handler(req model.JWTRequest) (res model.JWTResponse, err error) {
 		if tkn, err = jwt.ParseWithClaims(req.Token, &model.JWTClaims{}, func(token *jwt.Token) (any, error) {
 			return []byte(os.Getenv("JWT_SECRET")), nil
 		}); err == nil {
-			res.Claims, err = json.Marshal(tkn.Claims.(*model.JWTClaims))
+			res.Claims = tkn.Claims.(*model.JWTClaims)
 		}
 		return
 	}

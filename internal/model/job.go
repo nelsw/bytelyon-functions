@@ -1,18 +1,16 @@
 package model
 
 import (
-	"bytelyon-functions/pkg/entity"
 	"fmt"
 	"time"
 
 	"github.com/oklog/ulid/v2"
 	"github.com/rs/zerolog"
-	"github.com/rs/zerolog/log"
 )
 
 type Job struct {
+	User      User      `json:"-" fake:"skip"`
 	ID        ulid.ULID `json:"id" fake:"skip"`
-	UserID    ulid.ULID `json:"user_id" fake:"skip"`
 	WorkID    ulid.ULID `json:"work_id" fake:"skip"`
 	Type      JobType   `json:"type"`
 	Frequency Frequency `json:"frequency"`
@@ -21,19 +19,18 @@ type Job struct {
 	Desc      string    `json:"description"`
 	URLs      []string  `json:"urls"`
 	Keywords  []string  `json:"keywords"`
-	User      User      `json:"-"`
 }
 
 func (j Job) Path() string {
-	return fmt.Sprintf("%s/job/%s", j.User.Path(), j.ID)
+	return fmt.Sprintf("%s/job", j.User.Path())
+}
+
+func (j Job) Key() string {
+	return fmt.Sprintf("%s/%s.json", j.Path(), j.ID)
 }
 
 func (j Job) Validate() error {
-	if j.ID.IsZero() {
-		return fmt.Errorf("job id is not set")
-	} else if j.UserID.IsZero() {
-		return fmt.Errorf("user id is not set")
-	} else if _, ok := JobTypes[j.Type]; !ok {
+	if _, ok := JobTypes[j.Type]; !ok {
 		return fmt.Errorf("job type must be set")
 	} else if len(j.Keywords) == 0 {
 		return fmt.Errorf("job keywords must be set")
@@ -53,13 +50,6 @@ func (j Job) MarshalZerologObject(e *zerolog.Event) {
 	e.Stringer("id", j.ID).
 		Str("type", JobTypes[j.Type]).
 		Err(j.Err)
-}
-
-func NewJob(userID ulid.ULID) Job {
-	return Job{
-		ID:     NewUlid(),
-		UserID: userID,
-	}
 }
 
 type JobType int
@@ -106,15 +96,4 @@ type Frequency struct {
 
 func (f Frequency) Duration() time.Duration {
 	return FrequencyUnits[f.Unit] * time.Duration(f.Value)
-}
-
-func (j Job) CreateWork() error {
-
-	w := NewWork(j)
-	j.WorkID = w.ID
-	j.Err = entity.New().Value(&w).Save()
-
-	log.Err(j.Err).Any("job", j).Msg("worked")
-
-	return entity.New().Value(&j).Save()
 }

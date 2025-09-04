@@ -129,3 +129,7 @@ func Response(b []byte, err error) (events.LambdaFunctionURLResponse, error) {
 func ServerError(err error) (events.LambdaFunctionURLResponse, error) {
 	return response(http.StatusInternalServerError, err.Error())
 }
+
+func Unauthorized() (events.LambdaFunctionURLResponse, error) {
+	return response(http.StatusUnauthorized, "")
+}

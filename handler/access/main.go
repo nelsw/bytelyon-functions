@@ -4,7 +4,6 @@ import (
 	"bytelyon-functions/internal/model"
 	"bytelyon-functions/internal/util"
 	"bytelyon-functions/pkg/api"
-	lamb "bytelyon-functions/pkg/service/lambda"
 	"bytelyon-functions/pkg/service/s3"
 	"context"
 	"encoding/base64"
@@ -63,10 +62,7 @@ func handleLogin(ctx context.Context, token string) ([]byte, error) {
 		}
 	}
 
-	return lamb.NewWithContext(ctx).InvokeRequest(ctx, "bytelyon-jwt", util.MustMarshal(model.JWTRequest{
-		Type: model.JWTCreation,
-		Data: map[string]any{"id": email.UserID},
-	}))
+	return model.CreateJWT(ctx, model.User{ID: email.UserID})
 }
 
 func main() {

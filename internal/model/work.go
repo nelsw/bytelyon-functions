@@ -24,21 +24,17 @@ func init() {
 type Work struct {
 	Job   Job       `json:"-"`
 	ID    ulid.ULID `json:"id"`
-	JobID ulid.ULID `json:"job_id"`
 	Items Items     `json:"items"`
 	Err   error     `json:"error"`
 }
 
-func (w Work) Path() string {
-	return fmt.Sprintf("%s/work/%s", w.Job.Path(), w.ID)
+func (w Work) Key() string {
+	return fmt.Sprintf("%s/work/%s.json", w.Job.Path(), w.ID)
 }
 
 func NewWork(j Job) Work {
 
-	w := Work{
-		ID:    NewUlid(),
-		JobID: j.ID,
-	}
+	w := Work{ID: NewUlid()}
 
 	switch j.Type {
 	case NewsJobType:

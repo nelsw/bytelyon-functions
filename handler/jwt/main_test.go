@@ -2,7 +2,6 @@ package main
 
 import (
 	"bytelyon-functions/internal/model"
-	"encoding/json"
 	"testing"
 
 	"github.com/brianvoe/gofakeit/v7"
@@ -19,7 +18,7 @@ func TestBadType(t *testing.T) {
 func TestOK(t *testing.T) {
 	t.Setenv("JWT_SECRET", "a-string-secret-at-least-256-bits-long")
 
-	data := map[string]any{"id": gofakeit.UUID()}
+	data := map[string]string{"id": gofakeit.UUID()}
 	res, err := handler(model.JWTRequest{
 		Type: model.JWTCreation,
 		Data: data,
@@ -32,8 +31,6 @@ func TestOK(t *testing.T) {
 	})
 	assert.NoError(t, err)
 
-	var m map[string]any
-	err = json.Unmarshal(res.Claims, &m)
 	assert.NoError(t, err)
-	assert.Equal(t, m["data"], data)
+	assert.Equal(t, res.Claims.Data, data)
 }
