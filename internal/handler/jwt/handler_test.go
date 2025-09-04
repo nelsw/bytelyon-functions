@@ -1,10 +1,10 @@
 package jwt
 
 import (
+	"bytelyon-functions/internal/app"
 	"bytelyon-functions/internal/model"
 	"testing"
 
-	"github.com/brianvoe/gofakeit/v7"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -18,7 +18,7 @@ func TestBadType(t *testing.T) {
 func TestOK(t *testing.T) {
 	t.Setenv("JWT_SECRET", "a-string-secret-at-least-256-bits-long")
 
-	data := map[string]string{"id": gofakeit.UUID()}
+	data := model.User{ID: app.NewUlid()}
 	res, err := Handler(model.JWTRequest{
 		Type: model.JWTCreation,
 		Data: data,

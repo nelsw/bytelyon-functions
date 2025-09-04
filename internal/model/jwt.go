@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/rs/zerolog/log"
 )
 
 type JWTRequest struct {
@@ -44,6 +45,16 @@ func CreateJWT(ctx context.Context, user User) (out []byte, err error) {
 		err = errors.Join(err, errors.New(string(out)))
 	}
 	return
+}
+
+func CreateJWTString(ctx context.Context, user User) string {
+	out, err := CreateJWT(ctx, user)
+	if err != nil {
+		log.Panic().Err(err).Send()
+	}
+	var res JWTResponse
+	app.MustUnmarshal(out, &res)
+	return res.Token
 }
 
 func ValidateJWT(ctx context.Context, tkn string) (u User, err error) {

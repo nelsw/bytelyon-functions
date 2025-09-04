@@ -1,6 +1,8 @@
 package job
 
 import (
+	"bytelyon-functions/internal/app"
+	"bytelyon-functions/internal/client/s3"
 	"bytelyon-functions/internal/model"
 	"bytelyon-functions/test"
 	"context"
@@ -10,6 +12,7 @@ import (
 )
 
 func TestHandler_Save(t *testing.T) {
+
 	job := model.Job{
 		Type: model.NewsJobType,
 		Frequency: model.Frequency{
@@ -20,12 +23,15 @@ func TestHandler_Save(t *testing.T) {
 		Desc:     "Test Job Description",
 		Keywords: []string{"Ford", "Bronco"},
 	}
-
 	ctx := context.Background()
-	req := test.NewRequest(t).Header("authorization", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJkYXRhIjp7ImlkIjoiMDFLNDhQQzBCSzEzQldWMkNHV0ZQOFFRSDAifSwiaXNzIjoiQnl0ZUx5b24iLCJleHAiOjE3NTcwMDA4NDYsIm5iZiI6MTc1Njk5OTA0NiwiaWF0IjoxNzU2OTk5MDQ2LCJqdGkiOiIwZmNmZWZhNi0zMTE3LTRjNWItOTlhMy04OGM0ODhhNTc1N2UifQ.ZGk73d0aWuC08l-zeDzclVEmcEyYcYiWfHO57dZ1swY").Post(job)
+	user := model.User{ID: app.NewUlid()}
+	token := model.CreateJWTString(ctx, user)
+	req := test.NewRequest(t).Header("authorization", token).Post(job)
 
 	res, err := Handler(ctx, req)
 
 	assert.NoError(t, err)
 	assert.Equal(t, res.StatusCode, 200)
+
+	_ = s3.NewWithContext(ctx).Delete(user.Path())
 }
