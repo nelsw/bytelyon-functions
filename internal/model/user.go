@@ -11,15 +11,23 @@ type User struct {
 }
 
 func (u User) Path() string {
-	return fmt.Sprintf("db/user/%s", u.ID)
+	return fmt.Sprintf("/user/%s/user", u.ID)
+}
+
+func NewUser() *User {
+	return &User{NewUlid()}
 }
 
 type Profile struct {
-	UserId ulid.ULID `json:"user_id"`
+	UserID ulid.ULID `json:"user_id"`
 	Name   string    `json:"name"`
 	Image  string    `json:"image"`
 }
 
 func (p Profile) Key() string {
-	return fmt.Sprintf("db/user/%s/profile", p.UserId)
+	return fmt.Sprintf("/user/%s/profile", p.UserID)
+}
+
+func NewProfile(u *User) *Profile {
+	return &Profile{UserID: u.ID}
 }

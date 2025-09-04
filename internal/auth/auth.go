@@ -1,36 +1,17 @@
 package auth
 
 import (
+	"bytelyon-functions/internal/db"
 	"bytelyon-functions/internal/model"
+	"bytelyon-functions/pkg/service/lambda"
 	"context"
 	"encoding/base64"
+	"encoding/json"
 	"errors"
-	"os"
 	"strings"
-	"time"
-
-	"github.com/golang-jwt/jwt/v5"
-	"github.com/google/uuid"
 )
 
-type Claims struct {
-	Data interface{} `json:"data"`
-	jwt.RegisteredClaims
-}
-
-func Validate(ctx context.Context, s string) error {
-	if strings.HasPrefix(s, "Bearer ") {
-		s = strings.TrimPrefix(s, "Bearer ")
-	}
-
-	_, err := jwt.ParseWithClaims(s, &Claims{}, func(token *jwt.Token) (interface{}, error) {
-		return []byte(os.Getenv("JWT_SECRET")), nil
-	})
-
-	return err
-}
-
-func Login(ctx context.Context, token string) (string, error) {
+func Login(ctx context.Context, token string) ([]byte, error) {
 	if strings.HasPrefix(token, "Basic ") {
 		token = strings.TrimPrefix(token, "Basic ")
 	}
@@ -38,35 +19,29 @@ func Login(ctx context.Context, token string) (string, error) {
 	b, _ := base64.StdEncoding.DecodeString(token)
 	parts := strings.Split(string(b), ":")
 	if len(parts) != 2 {
-		return "", errors.New("invalid token")
+		return nil, errors.New("invalid token")
 	}
 
 	email := model.Email{ID: parts[0]}
-	if err := email.Validate(); err != nil {
-		return "", err
-	} else if err = model.PasswordText(parts[1]).Validate(); err != nil {
-		return "", err
+	if err := db.FindOne(email.Path(), &email); err != nil {
+		return nil, err
 	}
 
-	// todo - get email with metadata and confirm password
+	pass := model.Password{UserID: email.UserID, Text: parts[1]}
+	if err := db.FindOne(pass.Path(), &pass); err != nil {
+		return nil, err
+	} else if err = pass.Compare(); err != nil {
+		return nil, err
+	}
 
-	return "", nil
+	payload, _ := json.Marshal(map[string]any{
+		"type": 2,
+		"data": map[string]any{"id": email.UserID},
+	})
+
+	return lambda.New(ctx).InvokeRequest(ctx, "bytelyon-jwt", payload)
 }
 
-func SignUp(ctx context.Context, token string) (string, error) {
-	return "", nil
-}
-
-func newToken(data interface{}) string {
-	tkn, _ := jwt.NewWithClaims(jwt.SigningMethodHS256, Claims{
-		Data: data,
-		RegisteredClaims: jwt.RegisteredClaims{
-			Issuer:    "ByteLyon",
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Minute * 30)),
-			NotBefore: jwt.NewNumericDate(time.Now()),
-			IssuedAt:  jwt.NewNumericDate(time.Now()),
-			ID:        uuid.NewString(),
-		},
-	}).SignedString([]byte(os.Getenv("JWT_SECRET")))
-	return tkn
+func SignUp(ctx context.Context, token string) ([]byte, error) {
+	return nil, nil
 }

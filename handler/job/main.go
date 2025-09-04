@@ -31,7 +31,7 @@ func handler(ctx context.Context, req events.LambdaFunctionURLRequest) (events.L
 	case http.MethodDelete:
 		return handleDelete(ctx, req.QueryStringParameters["ids"])
 	default:
-		return api.NotImplemented(req.RequestContext.HTTP.Method)
+		return api.NotImplemented(req)
 	}
 }
 
@@ -53,7 +53,7 @@ func handleSave(ctx context.Context, body string, j model.Job) (events.LambdaFun
 	} else if err = entity.New(ctx).Value(&j).Save(); err != nil {
 		return api.ServerError(err)
 	}
-	return api.OK(&j)
+	return api.Marshall(j)
 }
 
 func handleGet(ctx context.Context, size string) (events.LambdaFunctionURLResponse, error) {
@@ -68,7 +68,7 @@ func handleGet(ctx context.Context, size string) (events.LambdaFunctionURLRespon
 		return api.ServerError(err)
 	}
 
-	return api.OK(map[string]interface{}{
+	return api.Marshall(map[string]interface{}{
 		"items": vv,
 		"size":  len(vv),
 	})

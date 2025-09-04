@@ -6,7 +6,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"net/http"
 	"strings"
 
 	"github.com/aws/aws-lambda-go/events"
@@ -25,30 +24,27 @@ const bucket = "bytelyon"
 
 func handler(ctx context.Context, req events.LambdaFunctionURLRequest) (events.LambdaFunctionURLResponse, error) {
 
-	api.Log("context", ctx, "request", req)
+	api.LogURLRequest(req)
 
 	var b []byte
 	var err error
 
-	switch req.RequestContext.HTTP.Method {
-	case http.MethodOptions:
-		return api.Response(http.StatusOK, "")
-	case http.MethodPost:
+	switch {
+	case api.IsOptions(req):
+		return api.OK()
+	case api.IsPost(req):
 		b, err = handlePost(ctx, req.Body)
-	case http.MethodGet:
+	case api.IsGet(req):
 		b, err = handleGet(ctx)
-	case http.MethodPatch:
+	case api.IsPatch(req):
 		err = handlePatch(ctx, req.QueryStringParameters["id"], req.QueryStringParameters["read"])
-	case http.MethodDelete:
+	case api.IsDelete(req):
 		b, err = handleDelete(ctx, req.QueryStringParameters["ids"])
 	default:
-		return api.Response(http.StatusNotImplemented, "Method not implemented: "+req.RequestContext.HTTP.Method)
+		return api.NotImplemented(req)
 	}
 
-	if err != nil {
-		return api.Response(http.StatusBadRequest, err.Error())
-	}
-	return api.Response(http.StatusOK, string(b))
+	return api.Response(b, err)
 }
 
 func handlePost(ctx context.Context, s string) ([]byte, error) {
