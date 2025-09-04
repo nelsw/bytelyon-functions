@@ -101,6 +101,13 @@ func NotImplemented(req events.LambdaFunctionURLRequest) (events.LambdaFunctionU
 	return response(http.StatusNotImplemented, requestMapString(req))
 }
 
+func Err(err error) (events.LambdaFunctionURLResponse, error) {
+	if err != nil {
+		return BadRequest(err)
+	}
+	return OK()
+}
+
 func OK() (events.LambdaFunctionURLResponse, error) {
 	return okStr("")
 }
