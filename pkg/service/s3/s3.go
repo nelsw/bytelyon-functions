@@ -120,6 +120,18 @@ func (c *Client) KeysAfter(ctx context.Context, size int32, bucket, prefix, afte
 	return keys, nil
 }
 
+// New returns a new S3 client with the default context.
+func New() Service {
+	return NewWithContext(context.Background())
+}
+
+// NewWithContext returns a new S3 client with the provided context.
+func NewWithContext(ctx context.Context) Service {
+	return NewClient(ctx)
+}
+
+// NewClient returns a new S3 client.
+// deprecated: use NewWithContext instead.
 func NewClient(ctx context.Context) Service {
 	if cfg, err := config.LoadDefaultConfig(ctx); err != nil {
 		panic(err)
