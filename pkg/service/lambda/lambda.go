@@ -2,31 +2,23 @@ package lambda
 
 import (
 	"context"
-	"encoding/json"
-	"fmt"
 	"log"
-	"time"
 
-	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/lambda"
 	"github.com/aws/aws-sdk-go-v2/service/lambda/types"
 )
 
 type Service interface {
-	Create(ctx context.Context, name, role string, zipFile []byte, vars map[string]string)
-	Update(ctx context.Context, name string, zipFile []byte, vars map[string]string)
-	Delete(ctx context.Context, name string)
-	Publish(ctx context.Context, name string)
-	InvokeEvent(ctx context.Context, name string, payload []byte) error
-	InvokeRequest(ctx context.Context, name string, payload []byte) error
+	InvokeEvent(context.Context, string, []byte) ([]byte, error)
+	InvokeRequest(context.Context, string, []byte) ([]byte, error)
 }
 
 type Client struct {
 	*lambda.Client
 }
 
-func NewClient(ctx context.Context) Service {
+func New(ctx context.Context) Service {
 	cfg, err := config.LoadDefaultConfig(ctx)
 	if err != nil {
 		log.Fatalf("unable to load SDK config, %v", err)
@@ -34,95 +26,25 @@ func NewClient(ctx context.Context) Service {
 	return &Client{lambda.NewFromConfig(cfg)}
 }
 
-func (c *Client) Create(ctx context.Context, name, role string, zipFile []byte, vars map[string]string) {
-
-	if _, err := c.CreateFunction(ctx, &lambda.CreateFunctionInput{
-		Code:          &types.FunctionCode{ZipFile: zipFile},
-		FunctionName:  &name,
-		Role:          &role,
-		Handler:       aws.String("bootstrap"),
-		Publish:       true,
-		Runtime:       types.RuntimeProvidedal2,
-		Architectures: []types.Architecture{types.ArchitectureArm64},
-		Timeout:       aws.Int32(int32(90)),
-		Environment:   &types.Environment{Variables: vars},
-	}); err == nil {
-		_, err = lambda.
-			NewFunctionActiveV2Waiter(c).
-			WaitForOutput(ctx, &lambda.GetFunctionInput{FunctionName: &name}, time.Second*15)
-	} else {
-		log.Panicf("Create function failed, %v", err)
-	}
-}
-
-func (c *Client) Update(ctx context.Context, name string, zipFile []byte, vars map[string]string) {
-
-	if vars != nil {
-		if _, err := c.UpdateFunctionConfiguration(ctx, &lambda.UpdateFunctionConfigurationInput{
-			FunctionName: &name,
-			Environment:  &types.Environment{Variables: vars},
-		}); err != nil {
-			log.Panicf("Update function failed, %v", err)
-		}
-		time.Sleep(30 * time.Second)
-	}
-
-	if _, err := c.UpdateFunctionCode(ctx, &lambda.UpdateFunctionCodeInput{
-		FunctionName: &name,
-		ZipFile:      zipFile,
-		Publish:      true,
-	}); err != nil {
-		log.Panicf("Update function failed, %v", err)
-	}
-}
-
-func (c *Client) Publish(ctx context.Context, name string) {
-	out, err := c.CreateFunctionUrlConfig(ctx, &lambda.CreateFunctionUrlConfigInput{
-		AuthType:     types.FunctionUrlAuthTypeNone,
-		FunctionName: &name,
-	})
-	if err != nil {
-		log.Panicf("CreateFunctionUrlConfig failed, %v", err)
-	}
-
-	if _, err = c.AddPermission(ctx, &lambda.AddPermissionInput{
-		Action:              aws.String("lambda:InvokeFunctionUrl"),
-		FunctionName:        &name,
-		Principal:           aws.String("*"),
-		StatementId:         aws.String("FunctionURLAllowPublicAccess"),
-		FunctionUrlAuthType: types.FunctionUrlAuthTypeNone,
-	}); err != nil {
-		log.Panicf("AddPermission failed, %v", err)
-	}
-
-	b, _ := json.MarshalIndent(out, "", "\t")
-	fmt.Println(string(b))
-}
-
-func (c *Client) Delete(ctx context.Context, name string) {
-	if _, err := c.GetFunction(ctx, &lambda.GetFunctionInput{FunctionName: &name}); err == nil {
-		if _, err = c.DeleteFunction(ctx, &lambda.DeleteFunctionInput{FunctionName: &name}); err != nil {
-			log.Panicf("Delete function failed, %v", err)
-		}
-	}
-}
-
-func (c *Client) InvokeEvent(ctx context.Context, name string, payload []byte) error {
+func (c *Client) InvokeEvent(ctx context.Context, name string, payload []byte) ([]byte, error) {
 	return c.invoke(ctx, types.InvocationTypeEvent, name, payload)
 }
 
-func (c *Client) InvokeRequest(ctx context.Context, name string, payload []byte) error {
+func (c *Client) InvokeRequest(ctx context.Context, name string, payload []byte) ([]byte, error) {
 	return c.invoke(ctx, types.InvocationTypeRequestResponse, name, payload)
 }
 
-func (c *Client) invoke(ctx context.Context, invocationType types.InvocationType, name string, payload []byte) error {
-	input := lambda.InvokeInput{
+func (c *Client) invoke(ctx context.Context, typ types.InvocationType, name string, payload []byte) ([]byte, error) {
+
+	output, err := c.Invoke(ctx, &lambda.InvokeInput{
 		FunctionName:   &name,
-		InvocationType: invocationType,
+		InvocationType: typ,
+		Payload:        payload,
+	})
+
+	if err != nil {
+		return nil, err
 	}
-	if payload != nil {
-		input.Payload = payload
-	}
-	_, err := c.Invoke(ctx, &input)
-	return err
+
+	return output.Payload, nil
 }
