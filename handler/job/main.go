@@ -1,9 +1,9 @@
 package main
 
 import (
-	"bytelyon-functions/internal/entity"
 	"bytelyon-functions/internal/model"
 	"bytelyon-functions/pkg/api"
+	"bytelyon-functions/pkg/entity"
 	"context"
 	"encoding/json"
 	"errors"

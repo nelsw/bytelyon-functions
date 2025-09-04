@@ -1,7 +1,7 @@
 package model
 
 import (
-	"bytelyon-functions/internal/entity"
+	"bytelyon-functions/pkg/entity"
 	"fmt"
 	"time"
 

@@ -1,8 +1,8 @@
 package main
 
 import (
-	"bytelyon-functions/internal/entity"
 	"bytelyon-functions/internal/model"
+	"bytelyon-functions/pkg/entity"
 	"bytelyon-functions/test"
 	"context"
 	"encoding/json"
