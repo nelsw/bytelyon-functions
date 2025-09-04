@@ -2,23 +2,18 @@ package main
 
 import (
 	"bytelyon-functions/pkg/api"
-	"context"
-	"encoding/json"
-	"net/http"
 
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
 )
 
-func handler(ctx context.Context, req events.LambdaFunctionURLRequest) (events.LambdaFunctionURLResponse, error) {
+func Handler(req events.LambdaFunctionURLRequest) (events.LambdaFunctionURLResponse, error) {
 
 	api.LogURLRequest(req)
 
-	b, _ := json.MarshalIndent(req, "", "\t")
-
-	return api.Response(http.StatusOK, string(b))
+	return api.Marshall(req)
 }
 
 func main() {
-	lambda.Start(handler)
+	lambda.Start(Handler)
 }
