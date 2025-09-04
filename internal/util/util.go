@@ -18,3 +18,11 @@ func First(a ...any) any {
 	}
 	return nil
 }
+
+func MustMarshal(a any) []byte {
+	b, err := json.Marshal(&a)
+	if err != nil {
+		panic(err)
+	}
+	return b
+}

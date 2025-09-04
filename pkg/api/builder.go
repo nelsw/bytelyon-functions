@@ -52,6 +52,9 @@ func (b builder) Body(a any) Builder {
 }
 
 func (b builder) Path(s string) Builder {
+	if !strings.HasPrefix(s, "/") {
+		s = "/" + s
+	}
 	b.path = append(b.path, s)
 	return b
 }
@@ -112,7 +115,7 @@ func (b builder) Build() events.LambdaFunctionURLRequest {
 		req.Headers = b.headers
 	}
 	if len(b.path) > 0 {
-		req.RawPath = strings.Join(b.path, "/")
+		req.RawPath = strings.Join(b.path, "")
 	}
 	if len(b.query) > 0 {
 		req.QueryStringParameters = b.query

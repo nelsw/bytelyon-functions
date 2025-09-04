@@ -3,10 +3,10 @@ package auth
 import (
 	"bytelyon-functions/internal/db"
 	"bytelyon-functions/internal/model"
+	"bytelyon-functions/internal/util"
 	"bytelyon-functions/pkg/service/lambda"
 	"context"
 	"encoding/base64"
-	"encoding/json"
 	"errors"
 	"strings"
 )
@@ -34,12 +34,10 @@ func Login(ctx context.Context, token string) ([]byte, error) {
 		return nil, err
 	}
 
-	payload, _ := json.Marshal(map[string]any{
-		"type": 2,
-		"data": map[string]any{"id": email.UserID},
-	})
-
-	return lambda.New(ctx).InvokeRequest(ctx, "bytelyon-jwt", payload)
+	return lambda.New(ctx).InvokeRequest(ctx, "bytelyon-jwt", util.MustMarshal(model.JWTRequest{
+		Type: model.JWTCreation,
+		Data: map[string]any{"id": email.UserID},
+	}))
 }
 
 func SignUp(ctx context.Context, token string) ([]byte, error) {

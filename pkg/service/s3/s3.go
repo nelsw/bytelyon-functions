@@ -69,9 +69,7 @@ func (c *Client) Put(ctx context.Context, bucket, key string, data []byte) error
 		Bucket: &bucket,
 		Key:    &key,
 		Body:   bytes.NewReader(data),
-		Metadata: map[string]string{
-			"foo": "bar",
-		}})
+	})
 	return err
 }
 

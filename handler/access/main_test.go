@@ -1,18 +1,25 @@
 package main
 
 import (
-	"bytelyon-functions/test"
+	"bytelyon-functions/pkg/api"
+	"context"
 	"encoding/base64"
+	"fmt"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestLogin(t *testing.T) {
-	e := "kowalski7012@gmail.com"
-	p := "Farts1234!"
-	s := base64.StdEncoding.EncodeToString([]byte(e + ":" + p))
 
-	test.New(t).
-		Header("authorization", s).Post(nil).
-		Handle(handler).
-		OK().JSON(map[string]any{})
+	e := "demo@demo.com"
+	p := "Demo123!"
+	s := base64.StdEncoding.EncodeToString([]byte(fmt.Sprintf("%s:%s", e, p)))
+	ctx := context.Background()
+	req := api.NewRequest().Path("login").Header("authorization", s).Post()
+
+	res, err := handler(ctx, req)
+
+	assert.NoError(t, err)
+	assert.Equal(t, res.StatusCode, 200)
 }
