@@ -27,3 +27,7 @@ func (e Email) Validate() error {
 func (e Email) Path() string {
 	return fmt.Sprintf("email/%s", base64.URLEncoding.EncodeToString([]byte(e.ID)))
 }
+
+func (e Email) User() User {
+	return User{ID: e.UserID}
+}

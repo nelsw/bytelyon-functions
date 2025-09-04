@@ -8,13 +8,12 @@ import (
 	"strings"
 
 	"github.com/golang-jwt/jwt/v5"
-	"github.com/oklog/ulid/v2"
 )
 
 type JWTRequest struct {
-	Type  JWTRequestType    `json:"type"`
-	Data  map[string]string `json:"data"`
-	Token string            `json:"token"`
+	Type  JWTRequestType `json:"type"`
+	Data  User           `json:"data"`
+	Token string         `json:"token"`
 }
 
 type JWTResponse struct {
@@ -23,7 +22,7 @@ type JWTResponse struct {
 }
 
 type JWTClaims struct {
-	Data map[string]string `json:"data"`
+	Data User `json:"data"`
 	jwt.RegisteredClaims
 }
 
@@ -36,11 +35,15 @@ const (
 
 var JWTRequestTypeError = errors.New("invalid JWT request type; must be 1 (validation), 2 (creation)")
 
-func CreateJWT(ctx context.Context, user User) ([]byte, error) {
-	return lambda.NewWithContext(ctx).InvokeRequest(ctx, "bytelyon-jwt", app.MustMarshal(JWTRequest{
+func CreateJWT(ctx context.Context, user User) (out []byte, err error) {
+	out, err = lambda.NewWithContext(ctx).InvokeRequest(ctx, "bytelyon-jwt", app.MustMarshal(JWTRequest{
 		Type: JWTCreation,
-		Data: map[string]string{"id": user.ID.String()},
+		Data: user,
 	}))
+	if strings.Contains(string(out), "error") {
+		err = errors.Join(err, errors.New(string(out)))
+	}
+	return
 }
 
 func ValidateJWT(ctx context.Context, tkn string) (u User, err error) {
@@ -52,11 +55,10 @@ func ValidateJWT(ctx context.Context, tkn string) (u User, err error) {
 	if strings.Contains(string(out), "error") {
 		err = errors.Join(err, errors.New(string(out)))
 	}
-	if err != nil {
-		return
+	if err == nil {
+		var res JWTResponse
+		app.MustUnmarshal(out, &res)
+		u = res.Claims.Data
 	}
-	var res JWTResponse
-	app.MustUnmarshal(out, &res)
-	u = User{ID: ulid.MustParse(res.Claims.Data["id"])}
 	return
 }

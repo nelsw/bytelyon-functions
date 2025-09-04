@@ -27,12 +27,12 @@ func Handler(ctx context.Context, req events.LambdaFunctionURLRequest) (events.L
 		return app.Forbidden()
 	}
 
-	db := s3.NewWithContext(ctx)
 	path := req.RawPath
 	if strings.HasSuffix(path, "/") {
 		path = path[:len(path)-1]
 	}
 
+	db := s3.NewWithContext(ctx)
 	if app.IsDelete(req) {
 		return app.Err(db.Delete(path))
 	}
