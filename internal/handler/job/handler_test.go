@@ -26,7 +26,7 @@ func TestHandler_Save(t *testing.T) {
 	ctx := context.Background()
 	user := model.User{ID: app.NewUlid()}
 	token := model.CreateJWTString(ctx, user)
-	req := test.NewRequest(t).Header("authorization", token).Post(job)
+	req := test.NewRequest(t).Header("authorization", "Bearer "+token).Post(job)
 
 	res, err := Handler(ctx, req)
 

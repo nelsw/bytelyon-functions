@@ -61,7 +61,7 @@ func ValidateJWT(ctx context.Context, tkn string) (u User, err error) {
 	var out []byte
 	out, err = lambda.NewWithContext(ctx).InvokeRequest(ctx, "bytelyon-jwt", app.MustMarshal(JWTRequest{
 		Type:  JWTValidation,
-		Token: tkn,
+		Token: strings.TrimPrefix(tkn, "Bearer "),
 	}))
 	if strings.Contains(string(out), "error") {
 		err = errors.Join(err, errors.New(string(out)))
