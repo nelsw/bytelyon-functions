@@ -2,14 +2,15 @@ package util
 
 import (
 	"encoding/json"
+	"os"
 )
 
-func IsJSON(s string) bool {
-	if s == "" {
-		return false
+func AppMode() string {
+	mode := os.Getenv("APP_MODE")
+	if mode == "" {
+		mode = "local"
 	}
-	var raw json.RawMessage
-	return json.Unmarshal([]byte(s), &raw) == nil
+	return mode
 }
 
 func First(a ...any) any {
@@ -19,10 +20,24 @@ func First(a ...any) any {
 	return nil
 }
 
+func IsJSON(s string) bool {
+	if s == "" {
+		return false
+	}
+	var raw json.RawMessage
+	return json.Unmarshal([]byte(s), &raw) == nil
+}
+
 func MustMarshal(a any) []byte {
 	b, err := json.Marshal(&a)
 	if err != nil {
 		panic(err)
 	}
 	return b
+}
+
+func MustUnmarshal(b []byte, a any) {
+	if err := json.Unmarshal(b, &a); err != nil {
+		panic(err)
+	}
 }
