@@ -1,6 +1,7 @@
 package model
 
 import (
+	"bytelyon-functions/internal/util"
 	"encoding/base64"
 	"errors"
 	"fmt"
@@ -36,6 +37,6 @@ func (e *Email) Validate() error {
 	return nil
 }
 
-func (e *Email) Path() string {
-	return fmt.Sprintf("/auth/email/%s", base64.URLEncoding.EncodeToString([]byte(e.ID)))
+func (e *Email) Key() string {
+	return fmt.Sprintf("%s/db/auth/email/%s.json", util.AppMode(), base64.URLEncoding.EncodeToString([]byte(e.ID)))
 }

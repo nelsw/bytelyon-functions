@@ -1,6 +1,7 @@
 package model
 
 import (
+	"bytelyon-functions/internal/util"
 	"errors"
 	"fmt"
 	"unicode"
@@ -25,8 +26,8 @@ func NewPassword(u *User, s string) (*Password, error) {
 	return p, nil
 }
 
-func (p *Password) Path() string {
-	return fmt.Sprintf("/auth/pork/%s", p.UserID)
+func (p *Password) Key() string {
+	return fmt.Sprintf("%s/db/auth/pork/%s.json", util.AppMode(), p.UserID)
 }
 
 func (p *Password) Compare() error {
