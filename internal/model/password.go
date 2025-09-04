@@ -1,7 +1,6 @@
 package model
 
 import (
-	"bytelyon-functions/internal/util"
 	"errors"
 	"fmt"
 	"unicode"
@@ -11,13 +10,13 @@ import (
 )
 
 type Password struct {
-	UserID ulid.ULID `json:"user_id"`
-	Hash   []byte    `json:"hash"`
-	Text   string    `json:"-"`
+	User User   `json:"-"`
+	Hash []byte `json:"hash"`
+	Text string `json:"-"`
 }
 
-func NewPassword(u *User, s string) (*Password, error) {
-	p := &Password{UserID: u.ID, Text: s}
+func NewPassword(userID ulid.ULID, s string) (*Password, error) {
+	p := &Password{User: User{ID: userID}, Text: s}
 	if err := p.Validate(); err != nil {
 		return nil, err
 	} else if p.Hash, err = bcrypt.GenerateFromPassword([]byte(s), bcrypt.MinCost); err != nil {
@@ -26,15 +25,15 @@ func NewPassword(u *User, s string) (*Password, error) {
 	return p, nil
 }
 
-func (p *Password) Key() string {
-	return fmt.Sprintf("%s/db/auth/pork/%s.json", util.AppMode(), p.UserID)
+func (p Password) Path() string {
+	return fmt.Sprintf("%s/pork", p.User.Path())
 }
 
-func (p *Password) Compare() error {
+func (p Password) Compare() error {
 	return bcrypt.CompareHashAndPassword(p.Hash, []byte(p.Text))
 }
 
-func (p *Password) Validate() error {
+func (p Password) Validate() error {
 
 	if len(p.Text) < 8 {
 		return errors.New("password must be at least 8 characters")

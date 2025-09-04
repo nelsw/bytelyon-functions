@@ -1,7 +1,6 @@
 package model
 
 import (
-	"bytelyon-functions/internal/util"
 	"encoding/base64"
 	"errors"
 	"fmt"
@@ -18,13 +17,13 @@ type Email struct {
 	Token    ulid.ULID `json:"token"`
 }
 
-func (e *Email) Validate() error {
+func (e Email) Validate() error {
 	if _, err := mail.ParseAddress(e.ID); err != nil {
 		return errors.Join(err, errors.New("invalid email address"))
 	}
 	return nil
 }
 
-func (e *Email) Key() string {
-	return fmt.Sprintf("%s/db/auth/email/%s.json", util.AppMode(), base64.URLEncoding.EncodeToString([]byte(e.ID)))
+func (e Email) Path() string {
+	return fmt.Sprintf("email/%s", base64.URLEncoding.EncodeToString([]byte(e.ID)))
 }

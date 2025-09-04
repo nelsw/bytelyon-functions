@@ -1,16 +1,15 @@
-package main
+package jwt
 
 import (
 	"bytelyon-functions/internal/model"
 	"os"
 	"time"
 
-	"github.com/aws/aws-lambda-go/lambda"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 )
 
-func handler(req model.JWTRequest) (res model.JWTResponse, err error) {
+func Handler(req model.JWTRequest) (res model.JWTResponse, err error) {
 
 	if req.Type == model.JWTValidation {
 		var tkn *jwt.Token
@@ -39,8 +38,4 @@ func handler(req model.JWTRequest) (res model.JWTResponse, err error) {
 	err = model.JWTRequestTypeError
 
 	return
-}
-
-func main() {
-	lambda.Start(handler)
 }

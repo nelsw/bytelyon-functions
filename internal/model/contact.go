@@ -1,7 +1,7 @@
 package model
 
 import (
-	"bytelyon-functions/internal/util"
+	"bytelyon-functions/internal/app"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -10,21 +10,20 @@ import (
 )
 
 type Contact struct {
-	ID    ulid.ULID `json:"id" fake:"skip"`
-	Name  string    `json:"name" fake:"{name}"`
-	Email string    `json:"email" fake:"{email}"`
-	Value string    `json:"message" fake:"{sentence}"`
+	ID    ulid.ULID `json:"id"`
+	Name  string    `json:"name"`
+	Email string    `json:"email"`
+	Value string    `json:"message"`
 }
 
-func NewContact(s string) (*Contact, error) {
-	var c Contact
-	if err := json.Unmarshal([]byte(s), &c); err != nil {
-		return nil, err
+func MakeContact(s string) (c Contact, err error) {
+	if err = json.Unmarshal([]byte(s), &c); err != nil {
+		return
 	} else if err = c.Validate(); err != nil {
-		return nil, err
+		return
 	}
-	c.ID = NewUlid()
-	return &c, nil
+	c.ID = app.NewUlid()
+	return c, nil
 }
 
 func (c Contact) Validate() error {
@@ -38,6 +37,6 @@ func (c Contact) Validate() error {
 	return nil
 }
 
-func (c Contact) Key() string {
-	return fmt.Sprintf("%s/db/message/contact/unread/%s.json", util.AppMode(), c.ID)
+func (c Contact) Path() string {
+	return fmt.Sprintf("message/contact/unread/%s", c.ID)
 }

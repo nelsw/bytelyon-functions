@@ -1,6 +1,7 @@
 package model
 
 import (
+	"bytelyon-functions/internal/app"
 	"encoding/xml"
 	"errors"
 	"fmt"
@@ -28,13 +29,13 @@ type Work struct {
 	Err   error     `json:"error"`
 }
 
-func (w Work) Key() string {
-	return fmt.Sprintf("%s/work/%s.json", w.Job.Path(), w.ID)
+func (w Work) Path() string {
+	return fmt.Sprintf("%s/work/%s", w.Job.Path(), w.ID)
 }
 
 func NewWork(j Job) Work {
 
-	w := Work{ID: NewUlid()}
+	w := Work{Job: j, ID: app.NewUlid()}
 
 	switch j.Type {
 	case NewsJobType:

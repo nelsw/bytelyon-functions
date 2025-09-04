@@ -1,10 +1,11 @@
 package model
 
 import (
-	"bytelyon-functions/internal/util"
-	lamb "bytelyon-functions/pkg/service/lambda"
+	"bytelyon-functions/internal/app"
+	"bytelyon-functions/internal/client/lambda"
 	"context"
 	"errors"
+	"strings"
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/oklog/ulid/v2"
@@ -17,8 +18,8 @@ type JWTRequest struct {
 }
 
 type JWTResponse struct {
-	Claims *JWTClaims `json:"claims"`
-	Token  string     `json:"token"`
+	Claims *JWTClaims `json:"claims,omitempty"`
+	Token  string     `json:"token,omitempty"`
 }
 
 type JWTClaims struct {
@@ -36,23 +37,26 @@ const (
 var JWTRequestTypeError = errors.New("invalid JWT request type; must be 1 (validation), 2 (creation)")
 
 func CreateJWT(ctx context.Context, user User) ([]byte, error) {
-	return lamb.NewWithContext(ctx).InvokeRequest(ctx, "bytelyon-jwt", util.MustMarshal(JWTRequest{
+	return lambda.NewWithContext(ctx).InvokeRequest(ctx, "bytelyon-jwt", app.MustMarshal(JWTRequest{
 		Type: JWTCreation,
 		Data: map[string]string{"id": user.ID.String()},
 	}))
 }
 
-func ValidateJWT(ctx context.Context, tkn string) (User, error) {
-	out, err := lamb.NewWithContext(ctx).InvokeRequest(ctx, "bytelyon-jwt", util.MustMarshal(JWTRequest{
+func ValidateJWT(ctx context.Context, tkn string) (u User, err error) {
+	var out []byte
+	out, err = lambda.NewWithContext(ctx).InvokeRequest(ctx, "bytelyon-jwt", app.MustMarshal(JWTRequest{
 		Type:  JWTValidation,
 		Token: tkn,
 	}))
-	var u User
-	if err == nil {
-		var claims JWTClaims
-		util.MustUnmarshal(out, &claims)
-		id := ulid.MustParse(claims.Data["id"])
-		u = User{ID: id}
+	if strings.Contains(string(out), "error") {
+		err = errors.Join(err, errors.New(string(out)))
 	}
-	return u, err
+	if err != nil {
+		return
+	}
+	var res JWTResponse
+	app.MustUnmarshal(out, &res)
+	u = User{ID: ulid.MustParse(res.Claims.Data["id"])}
+	return
 }

@@ -22,11 +22,7 @@ type Job struct {
 }
 
 func (j Job) Path() string {
-	return fmt.Sprintf("%s/job", j.User.Path())
-}
-
-func (j Job) Key() string {
-	return fmt.Sprintf("%s/%s.json", j.Path(), j.ID)
+	return fmt.Sprintf("%s/job/%s", j.User.Path(), j.ID)
 }
 
 func (j Job) Validate() error {

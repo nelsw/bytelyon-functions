@@ -1,11 +1,11 @@
-package api
+package test
 
 import (
-	"bytelyon-functions/internal/util"
 	"encoding/json"
 	"fmt"
 	"net/http"
 	"strings"
+	"testing"
 
 	"github.com/aws/aws-lambda-go/events"
 )
@@ -83,8 +83,12 @@ func (b builder) Options() events.LambdaFunctionURLRequest {
 	return b.Method(http.MethodOptions).Build()
 }
 
-func (b builder) Post(a ...any) events.LambdaFunctionURLRequest {
-	return b.Body(util.First(a)).Method(http.MethodPost).Build()
+func (b builder) Post(aa ...any) events.LambdaFunctionURLRequest {
+	var a any
+	if aa != nil && len(aa) == 1 && aa[0] != nil {
+		a = aa[0]
+	}
+	return b.Body(a).Method(http.MethodPost).Build()
 }
 
 func (b builder) Patch() events.LambdaFunctionURLRequest {
@@ -131,7 +135,10 @@ func (b builder) Build() events.LambdaFunctionURLRequest {
 	return req
 }
 
-func NewRequest() Builder {
+func NewRequest(t *testing.T) Builder {
+	InitLogger()
+	t.Setenv("APP_MODE", "test")
+	t.Setenv("JWT_SECRET", "a-string-secret-at-least-256-bits-long")
 	return builder{
 		headers: map[string]string{},
 		path:    []string{},

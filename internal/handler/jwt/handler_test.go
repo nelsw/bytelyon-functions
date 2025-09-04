@@ -1,4 +1,4 @@
-package main
+package jwt
 
 import (
 	"bytelyon-functions/internal/model"
@@ -10,7 +10,7 @@ import (
 
 func TestBadType(t *testing.T) {
 	t.Setenv("JWT_SECRET", "a-string-secret-at-least-256-bits-long")
-	res, err := handler(model.JWTRequest{})
+	res, err := Handler(model.JWTRequest{})
 	assert.Equal(t, res, model.JWTResponse{})
 	assert.ErrorIs(t, err, model.JWTRequestTypeError)
 }
@@ -19,13 +19,13 @@ func TestOK(t *testing.T) {
 	t.Setenv("JWT_SECRET", "a-string-secret-at-least-256-bits-long")
 
 	data := map[string]string{"id": gofakeit.UUID()}
-	res, err := handler(model.JWTRequest{
+	res, err := Handler(model.JWTRequest{
 		Type: model.JWTCreation,
 		Data: data,
 	})
 	assert.NoError(t, err)
 
-	res, err = handler(model.JWTRequest{
+	res, err = Handler(model.JWTRequest{
 		Type:  model.JWTValidation,
 		Token: res.Token,
 	})

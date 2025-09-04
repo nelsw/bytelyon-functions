@@ -1,7 +1,6 @@
-package api
+package app
 
 import (
-	"bytelyon-functions/internal/util"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -21,12 +20,18 @@ func okStr(s string) (events.LambdaFunctionURLResponse, error) {
 
 func requestMap(req events.LambdaFunctionURLRequest) map[string]any {
 	m := map[string]any{
-		"headers": req.Headers,
-		"method":  req.RequestContext.HTTP.Method,
-		"path":    req.RequestContext.HTTP.Path,
-		"query":   req.QueryStringParameters,
+		"method": req.RequestContext.HTTP.Method,
 	}
-	if req.IsBase64Encoded == false && util.IsJSON(req.Body) {
+	if len(req.Headers) > 0 {
+		m["headers"] = req.Headers
+	}
+	if len(req.RequestContext.HTTP.Path) > 0 {
+		m["path"] = req.RequestContext.HTTP.Path
+	}
+	if len(req.QueryStringParameters) > 0 {
+		m["query"] = req.QueryStringParameters
+	}
+	if req.IsBase64Encoded == false && IsJSON(req.Body) {
 		var a map[string]any
 		_ = json.Unmarshal([]byte(req.Body), &a)
 		m["body"] = a
@@ -79,7 +84,7 @@ func LogURLRequest(req events.LambdaFunctionURLRequest) {
 		"path":    req.RequestContext.HTTP.Path,
 		"query":   req.QueryStringParameters,
 	}
-	if req.IsBase64Encoded == false && util.IsJSON(req.Body) {
+	if req.IsBase64Encoded == false && IsJSON(req.Body) {
 		var a map[string]any
 		_ = json.Unmarshal([]byte(req.Body), &a)
 		m["body"] = a
@@ -130,6 +135,10 @@ func ServerError(err error) (events.LambdaFunctionURLResponse, error) {
 	return response(http.StatusInternalServerError, err.Error())
 }
 
-func Unauthorized() (events.LambdaFunctionURLResponse, error) {
-	return response(http.StatusUnauthorized, "")
+func Unauthorized(err error) (events.LambdaFunctionURLResponse, error) {
+	return response(http.StatusUnauthorized, err.Error())
+}
+
+func Forbidden() (events.LambdaFunctionURLResponse, error) {
+	return response(http.StatusForbidden, "")
 }

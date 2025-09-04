@@ -3,20 +3,22 @@ include .env
 .PHONY: test
 
 build:
-	@printf "➜  %s  %s [\033[35m./handler/%s\033[0m]" "🛠" "build" ${name}
-	@GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build -tags lambda.norpc -o bootstrap ./handler/${name}/main.go
+	@printf "➜  %s  %s [\033[35m%s\033[0m]" "🛠" "build" ${name}
+	@sed -i '' -e '4 s/handler\/.*/handler\/${name}"/g' ./cmd/main.go
+	@GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build -tags lambda.norpc -o bootstrap ./cmd/main.go
 	@zip -r9 main.zip bootstrap > /dev/null
 	@printf "  ✅\n"
 
 clean:
-	@printf "➜  %s  %s [\033[35m%s\033[0m]" "🧽" "clean" ${name}
+	@sed -i '' -e '4 s/handler\/.*/handler\/tmp"/g' ./cmd/main.go
+	@printf "➜  %s  %s [\033[35m%s\033[0m]" "🧽" "clean" "*"
 	@rm -f ./bootstrap
 	@rm -f ./main.zip
 	@rm -f ./cp.out
 	@printf "  ✅\n"
 
 create: build
-	@printf "➜  %s  %s [\033[35m./handler/%s\033[0m]" "💽" "create" ${name}
+	@printf "➜  %s  %s [\033[35m%s\033[0m]" "💽" "create" ${name}
 	@aws lambda create-function \
 		--function-name bytelyon-${name} \
 		--runtime "provided.al2" \
@@ -27,12 +29,12 @@ create: build
 		--memory-size "512" \
 		--timeout "30" \
 		--publish \
-		--environment "Variables={$(shell tr '\n' ',' < ./handler/${name}/.env)}" > /dev/null
+		--environment "Variables={$(shell tr '\n' ',' < ./internal/handler/${name}/.env)}" > /dev/null
 	@printf "  ✅\n"
 	@make clean
 
 delete:
-	@printf "➜  %s  %s [\033[35m./handler/%s\033[0m]" "🗑️" "delete" ${name}
+	@printf "➜  %s  %s [\033[35m%s\033[0m]" "🗑️" "delete" ${name}
 	@aws lambda delete-function --function-name bytelyon-${name} | jq
 	@printf "  ✅\n"
 
@@ -45,7 +47,7 @@ logs:
 	open "https://us-east-1.console.aws.amazon.com/cloudwatch/home#logStream:group=/aws/lambda/bytelyon-${name}"
 
 publish:
-	@printf "➜  %s  %s [\033[35m./handler/%s\033[0m]" "🌐" "publish" ${name}
+	@printf "➜  %s  %s [\033[35m%s\033[0m]" "🌐" "publish" ${name}
 	@aws lambda create-function-url-config --function-name bytelyon-${name} --auth-type NONE > /dev/null
 	@aws lambda add-permission \
     		--function-name bytelyon-${name} \
@@ -56,30 +58,32 @@ publish:
 	@printf "  ✅\n"
 	@make url
 
-test:
-	@printf "➜  %s  %s [\033[35m%s\033[0m]\n➜  " "📊" "test" "./..."
-	@go test -coverprofile cp.out ./...
+test: clean
+	@printf "➜  %s  %s [\033[35m%s\033[0m]\n\n" "📊" "test" "*"
+	@go test -covermode=atomic -coverpkg=./... -coverprofile=cp.out ./...  > /dev/null
+	@sed -i '' -e '/bytelyon-functions\/cmd\//d' cp.out
+	@sed -i '' -e '/bytelyon-functions\/test\//d' cp.out
 	@go tool cover -func=cp.out
 	@go tool cover -html=cp.out
 
 unpublish:
-	@printf "➜  %s  %s [\033[35m./handler/%s\033[0m]" "⛔️" "unpublish" ${name}
+	@printf "➜  %s  %s [\033[35m%s\033[0m]" "⛔️" "unpublish" ${name}
 	@aws lambda remove-permission --function-name bytelyon-${name} --statement-id FunctionURLAllowPublicAccess
 	@aws lambda delete-function-url-config --function-name bytelyon-${name}
 	@printf "  ✅\n"
 
 update: build
-	@printf "➜  %s  %s [\033[35m./handler/%s\033[0m]" "💾" "update" ${name}
+	@printf "➜  %s  %s [\033[35m%s\033[0m]" "💾" "update" ${name}
 	@aws lambda update-function-configuration \
     		--function-name bytelyon-${name} \
     		--role ${ROLE} \
     		--timeout "30" \
     		--memory-size "512" \
-    		--environment "Variables={$(shell tr '\n' ',' < ./handler/${name}/.env)}" > /dev/null
+    		--environment "Variables={$(shell tr '\n' ',' < ./internal/handler/${name}/.env)}" > /dev/null
 	@aws lambda update-function-code --zip-file fileb://./main.zip --function-name bytelyon-${name} > /dev/null
 	@printf "  ✅\n"
 	@make clean
 
 url:
-	@printf "➜  %s  %s [\033[35m./handler/%s\033[0m]\n" "🛜" "url" ${name}
+	@printf "➜  %s  %s [\033[35m%s\033[0m]\n" "🛜" "url" ${name}
 	@aws lambda get-function-url-config --function-name bytelyon-${name} | jq '.FunctionUrl'
