@@ -102,16 +102,8 @@ func key(s string) *string {
 	return &s
 }
 
-// New returns a new S3 client with the default context.
-func New() Client {
-	return NewWithContext(context.Background())
-}
-
-// NewWithContext returns a new S3 client with the provided context.
-func NewWithContext(ctx context.Context) Client {
-	if cfg, err := config.LoadDefaultConfig(ctx); err != nil {
-		panic(err)
-	} else {
-		return &client{s3.NewFromConfig(cfg), ctx}
-	}
+// New returns a new S3 client with the provided context.
+func New(ctx context.Context) Client {
+	cfg, _ := config.LoadDefaultConfig(ctx)
+	return &client{s3.NewFromConfig(cfg), ctx}
 }

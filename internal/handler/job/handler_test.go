@@ -2,11 +2,9 @@ package job
 
 import (
 	"bytelyon-functions/internal/app"
-	"bytelyon-functions/internal/client/s3"
 	"bytelyon-functions/internal/handler/jwt"
 	"bytelyon-functions/internal/model"
 	"bytelyon-functions/test"
-	"context"
 	"testing"
 
 	"github.com/brianvoe/gofakeit/v7"
@@ -31,44 +29,44 @@ func Test_Handler_Post(t *testing.T) {
 
 	req := test.
 		NewRequest(t).
-		Bearer(jwt.CreateString(context.Background(), fakeUser())).
+		Bearer(jwt.CreateString(test.CTX, fakeUser())).
 		Post(fakeJob())
 
-	res, _ := Handler(context.Background(), req)
+	res, _ := Handler(test.CTX, req)
 
 	assert.Equal(t, res.StatusCode, 200)
 }
 
 func Test_Handler_Get(t *testing.T) {
-	t.Setenv("APP_MODE", "test")
+	test.Init(t)
 	user := fakeUser()
-	_, _ = Save(s3.New(), user, string(app.MustMarshal(fakeJob())), false)
+	_, _ = Save(test.CTX, user, string(app.MustMarshal(fakeJob())), false)
 
 	req := test.
 		NewRequest(t).
-		Bearer(jwt.CreateString(context.Background(), user)).
+		Bearer(jwt.CreateString(test.CTX, user)).
 		Query("size", 2).
 		Get()
 
-	res, _ := Handler(context.Background(), req)
+	res, _ := Handler(test.CTX, req)
 
 	assert.Equal(t, res.StatusCode, 200)
 }
 
 func Test_Handler_Delete(t *testing.T) {
-	t.Setenv("APP_MODE", "test")
+	test.Init(t)
 	user := fakeUser()
 	job := fakeJob()
 	job.ID = app.NewUlid()
-	_, _ = Save(s3.New(), user, string(app.MustMarshal(job)), false)
+	_, _ = Save(test.CTX, user, string(app.MustMarshal(job)), false)
 
 	req := test.
 		NewRequest(t).
-		Bearer(jwt.CreateString(context.Background(), user)).
+		Bearer(jwt.CreateString(test.CTX, user)).
 		Query("id", job.ID).
 		Delete()
 
-	res, _ := Handler(context.Background(), req)
+	res, _ := Handler(test.CTX, req)
 
 	assert.Equal(t, res.StatusCode, 200)
 }

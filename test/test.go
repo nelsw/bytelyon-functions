@@ -1,6 +1,7 @@
 package test
 
 import (
+	"context"
 	"os"
 	"strings"
 	"testing"
@@ -8,6 +9,8 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 )
+
+var CTX = context.Background()
 
 func Init(t *testing.T) {
 	t.Setenv("APP_MODE", "test")

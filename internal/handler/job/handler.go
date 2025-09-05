@@ -27,25 +27,25 @@ func Handler(ctx context.Context, req events.LambdaFunctionURLRequest) (events.L
 		return app.Unauthorized(err)
 	}
 
-	db := s3.NewWithContext(ctx)
-
 	if app.IsDelete(req) {
-		return app.Err(Delete(db, user, req.QueryStringParameters["id"]))
+		return app.Err(Delete(ctx, user, req.QueryStringParameters["id"]))
 	}
 
 	if app.IsPut(req) || app.IsPost(req) {
-		return app.Response(Save(db, user, req.Body, app.IsPost(req)))
+		return app.Response(Save(ctx, user, req.Body, app.IsPost(req)))
 	}
 
 	if app.IsGet(req) {
 		i, _ := strconv.Atoi(req.QueryStringParameters["size"])
-		return app.Response(FindAll(db, user, i, req.QueryStringParameters["after"]))
+		return app.Response(FindAll(ctx, user, i, req.QueryStringParameters["after"]))
 	}
 
 	return app.NotImplemented(req)
 }
 
-func Save(db s3.Client, u model.User, s string, run bool) (b []byte, err error) {
+func Save(ctx context.Context, u model.User, s string, run bool) (b []byte, err error) {
+	db := s3.New(ctx)
+
 	var j model.Job
 
 	if j, err = model.MakeJob(u, []byte(s)); err == nil {
@@ -63,10 +63,11 @@ func Save(db s3.Client, u model.User, s string, run bool) (b []byte, err error) 
 	return
 }
 
-func FindAll(db s3.Client, u model.User, size int, after string) ([]byte, error) {
+func FindAll(ctx context.Context, u model.User, size int, after string) ([]byte, error) {
 	if size == 0 {
 		size = 10
 	}
+	db := s3.New(ctx)
 	keys, err := db.Keys(model.Job{User: u}.Path(), after, 1000)
 	var jj []model.Job
 	if err == nil {
@@ -108,7 +109,8 @@ func FindAll(db s3.Client, u model.User, size int, after string) ([]byte, error)
 	return app.MustMarshal(map[string]any{"items": jj, "size": len(jj)}), err
 }
 
-func Delete(db s3.Client, u model.User, id string) error {
+func Delete(ctx context.Context, u model.User, id string) error {
+	db := s3.New(ctx)
 	ID, err := ulid.Parse(id)
 	if err == nil {
 		err = db.Delete(model.Job{User: u, ID: ID}.Key())

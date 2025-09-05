@@ -35,7 +35,7 @@ func Handler(ctx context.Context, req events.LambdaFunctionURLRequest) (events.L
 		return app.BadRequest(errors.New("invalid token"))
 	}
 
-	db := s3.NewWithContext(ctx)
+	db := s3.New(ctx)
 
 	email := model.Email{ID: strings.ToLower(parts[0])}
 	if b, err = db.Get(email.Path()); err != nil {
