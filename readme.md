@@ -21,3 +21,4 @@ curl -X GET --location $url -H "authorization: Bearer $tkn" | jq
 - [ ] Add GitHub Actions for test badge
 - [ ] Add Makefile cmd for event bridge cron
 - [ ] Add ƒ for working jobs
+- [ ] Add python selenium ƒ (sep repo)
