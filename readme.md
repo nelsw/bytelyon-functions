@@ -20,7 +20,7 @@ jq -R 'split(".") | .[1] | @base64d | fromjson' <<< $res
 # Jobs
 tkn=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJkYXRhIjp7ImlkIjoiMDFLNDhQQzBCSzEzQldWMkNHV0ZQOFFRSDAifSwiaXNzIjoiQnl0ZUx5b24iLCJleHAiOjE3NTcwMTgxNDMsIm5iZiI6MTc1NzAxNjM0MywiaWF0IjoxNzU3MDE2MzQzLCJqdGkiOiIwYWVlNDdjMy03YTQ2LTRjYmQtYTdhYy1jNzQ2NjBmODg0MjQifQ.04abFJOZf-qB1C-C2y7Pjj4c2krkAyxCDZy7SK7p3Y4
 url="https://fkarinkfb33afcsdz2uutdcvfe0bmdee.lambda-url.us-east-1.on.aws/user/01K48PC0BK13BWV2CGWFP8QQH0/job"
-curl $url -H "authorization: Bearer $tkn"
+curl -X GET --location https://fkarinkfb33afcsdz2uutdcvfe0bmdee.lambda-url.us-east-1.on.aws/user/01K48PC0BK13BWV2CGWFP8QQH0/job -H "authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJkYXRhIjp7ImlkIjoiMDFLNDhQQzBCSzEzQldWMkNHV0ZQOFFRSDAifSwiaXNzIjoiQnl0ZUx5b24iLCJleHAiOjE3NTcwMjQyNDYsIm5iZiI6MTc1NzAyMjQ0NiwiaWF0IjoxNzU3MDIyNDQ2LCJqdGkiOiJiOTgyNzNhZC00MWM1LTRhMjAtODMwNi1lNTlhYWUxYzg5NjAifQ.nwny7PJK-MGWp_kuivfunb1CN8AWWk1kpikSN3Wyzsg" | jq
 ```
 
 ```shell

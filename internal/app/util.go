@@ -20,6 +20,17 @@ func MustMarshal(a any) []byte {
 	return b
 }
 
+func MustMarshalIndent(a any) []byte {
+	b, err := json.MarshalIndent(&a, "", "\t")
+	if err != nil {
+		log.Panic().
+			Err(err).
+			Any("any", a).
+			Msg("MustMarshal")
+	}
+	return b
+}
+
 func MustUnmarshal(b []byte, a any) {
 	if err := json.Unmarshal(b, &a); err != nil {
 		log.Panic().

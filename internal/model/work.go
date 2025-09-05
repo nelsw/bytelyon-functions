@@ -26,22 +26,34 @@ type Work struct {
 	Job   Job       `json:"-"`
 	ID    ulid.ULID `json:"id"`
 	Items Items     `json:"items"`
-	Err   error     `json:"error"`
+	Err   string    `json:"error"`
 }
 
 func (w Work) Path() string {
-	return fmt.Sprintf("%s/work/%s", w.Job.Path(), w.ID)
+	return fmt.Sprintf("%s/work", w.Job.Key())
+}
+
+func (w Work) Key() string {
+	return fmt.Sprintf("%s/%s", w.Path(), w.ID)
+}
+
+func MakeWork(j Job) Work {
+	return Work{Job: j, ID: app.NewUlid()}
 }
 
 func NewWork(j Job) Work {
 
-	w := Work{Job: j, ID: app.NewUlid()}
+	w := MakeWork(j)
 
 	switch j.Type {
 	case NewsJobType:
-		w.Items, w.Err = workNews(j)
+		i, e := workNews(j)
+		w.Items = i
+		if e != nil {
+			w.Err = e.Error()
+		}
 	default:
-		w.Err = errors.New(fmt.Sprintf("unknown job type [%d]", j.Type))
+		w.Err = fmt.Sprintf("unknown job type [%d]", j.Type)
 	}
 
 	return w
@@ -107,6 +119,21 @@ func (v *DateTime) UnmarshalXML(d *xml.Decoder, start xml.StartElement) error {
 		return err
 	}
 
+	*v = DateTime(t)
+	return nil
+}
+
+func (v *DateTime) UnmarshalJSON(b []byte) error {
+	s := string(b)
+	s = strings.Trim(s, `"`) // Remove quotes from the JSON string
+	if s == "" || s == "null" {
+		return nil // Handle empty or null strings
+	}
+
+	t, err := time.Parse(time.RFC3339, s)
+	if err != nil {
+		return err
+	}
 	*v = DateTime(t)
 	return nil
 }

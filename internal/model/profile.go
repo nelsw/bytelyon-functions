@@ -9,5 +9,5 @@ type Profile struct {
 }
 
 func (p Profile) Path() string {
-	return fmt.Sprintf("%s/profile/%s", p.User.Path(), p.User.ID)
+	return fmt.Sprintf("%s/profile/%s", p.User.Key(), p.User.ID)
 }

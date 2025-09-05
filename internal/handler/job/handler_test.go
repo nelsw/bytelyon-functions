@@ -6,32 +6,62 @@ import (
 	"bytelyon-functions/internal/model"
 	"bytelyon-functions/test"
 	"context"
+	"fmt"
 	"testing"
 
+	"github.com/brianvoe/gofakeit/v7"
+	"github.com/oklog/ulid/v2"
 	"github.com/stretchr/testify/assert"
 )
 
-func TestHandler_Save(t *testing.T) {
+func fakeUser() model.User {
+	return model.User{ID: ulid.MustParse("01K4CDXYTC5ZEFYERJHTP5KSAC")}
+}
 
-	job := model.Job{
-		Type: model.NewsJobType,
-		Frequency: model.Frequency{
-			Unit:  "h",
-			Value: 12,
-		},
-		Name:     "Test Job Name",
-		Desc:     "Test Job Description",
-		Keywords: []string{"Ford", "Bronco"},
+func fakeJob() model.Job {
+	return model.Job{
+		Type:      model.NewsJobType,
+		Frequency: model.Frequency{Unit: "h", Value: 12},
+		Name:      gofakeit.Name(),
+		Desc:      gofakeit.Sentence(10),
+		Keywords:  []string{"GM", "GMC", "EV", "Hummer"},
 	}
-	ctx := context.Background()
-	user := model.User{ID: app.NewUlid()}
-	token := model.CreateJWTString(ctx, user)
-	req := test.NewRequest(t).Header("authorization", "Bearer "+token).Post(job)
+}
 
-	res, err := Handler(ctx, req)
+func Test_Handler_Post(t *testing.T) {
 
-	assert.NoError(t, err)
+	req := test.
+		NewRequest(t).
+		Bearer(model.CreateJWTString(context.Background(), fakeUser())).
+		Post(fakeJob())
+
+	res, _ := Handler(context.Background(), req)
+
+	assert.Equal(t, res.StatusCode, 200)
+}
+
+func Test_Handler_Get(t *testing.T) {
+	t.Setenv("APP_MODE", "test")
+	user := fakeUser()
+
+	for i := 0; i < 3; i++ {
+		_, _ = Save(s3.New(), user, string(app.MustMarshal(fakeJob())), true)
+	}
+
+	req := test.
+		NewRequest(t).
+		Bearer(model.CreateJWTString(context.Background(), user)).
+		Query("size", 2).
+		Get()
+
+	res, _ := Handler(context.Background(), req)
+
 	assert.Equal(t, res.StatusCode, 200)
 
-	_ = s3.NewWithContext(ctx).Delete(user.Path())
+	body := res.Body
+
+	var m map[string]any
+	app.MustUnmarshal([]byte(body), &m)
+
+	fmt.Println(string(app.MustMarshalIndent(m["items"])))
 }

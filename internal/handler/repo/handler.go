@@ -23,7 +23,7 @@ func Handler(ctx context.Context, req events.LambdaFunctionURLRequest) (events.L
 	user, err := model.ValidateJWT(ctx, req.Headers["authorization"])
 	if err != nil {
 		return app.Unauthorized(err)
-	} else if !strings.Contains("user/"+user.ID.String(), req.RawPath) {
+	} else if !strings.Contains(req.RawPath, "user/"+user.ID.String()) {
 		return app.Forbidden()
 	}
 

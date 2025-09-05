@@ -11,5 +11,9 @@ type User struct {
 }
 
 func (u User) Path() string {
-	return fmt.Sprintf("user/%s", u.ID)
+	return fmt.Sprintf("user")
+}
+
+func (u User) Key() string {
+	return fmt.Sprintf("%s/%s", u.Path(), u.ID)
 }

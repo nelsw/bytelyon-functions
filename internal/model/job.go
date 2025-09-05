@@ -1,6 +1,8 @@
 package model
 
 import (
+	"bytelyon-functions/internal/app"
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -10,11 +12,11 @@ import (
 
 type Job struct {
 	User      User      `json:"-" fake:"skip"`
+	Work      []Work    `json:",omitempty"`
 	ID        ulid.ULID `json:"id" fake:"skip"`
 	WorkID    ulid.ULID `json:"work_id" fake:"skip"`
 	Type      JobType   `json:"type"`
 	Frequency Frequency `json:"frequency"`
-	Err       error     `json:"error" fake:"skip"`
 	Name      string    `json:"name"`
 	Desc      string    `json:"description"`
 	URLs      []string  `json:"urls"`
@@ -22,7 +24,11 @@ type Job struct {
 }
 
 func (j Job) Path() string {
-	return fmt.Sprintf("%s/job/%s", j.User.Path(), j.ID)
+	return fmt.Sprintf("%s/job", j.User.Key())
+}
+
+func (j Job) Key() string {
+	return fmt.Sprintf("%s/%s", j.Path(), j.ID)
 }
 
 func (j Job) Validate() error {
@@ -44,8 +50,20 @@ func (j Job) Ready() bool {
 
 func (j Job) MarshalZerologObject(e *zerolog.Event) {
 	e.Stringer("id", j.ID).
-		Str("type", JobTypes[j.Type]).
-		Err(j.Err)
+		Str("type", JobTypes[j.Type])
+}
+
+func MakeJob(u User, b []byte) (j Job, err error) {
+	if err = json.Unmarshal(b, &j); err == nil {
+		err = j.Validate()
+	}
+	if err == nil {
+		j.User = u
+		if j.ID.IsZero() {
+			j.ID = app.NewUlid()
+		}
+	}
+	return
 }
 
 type JobType int

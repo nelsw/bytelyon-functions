@@ -6,7 +6,9 @@ import (
 	"bytelyon-functions/internal/model"
 	"context"
 	"encoding/json"
-	"strings"
+	"errors"
+	"fmt"
+	"strconv"
 
 	"github.com/aws/aws-lambda-go/events"
 )
@@ -18,41 +20,82 @@ func Handler(ctx context.Context, req events.LambdaFunctionURLRequest) (events.L
 		return app.OK()
 	}
 
+	user, err := model.ValidateJWT(ctx, req.Headers["authorization"])
+	if err != nil {
+		return app.Unauthorized(err)
+	}
+
+	db := s3.NewWithContext(ctx)
+
 	if app.IsPut(req) || app.IsPost(req) {
-		user, err := model.ValidateJWT(ctx, req.Headers["authorization"])
-		if err != nil {
-			return app.Unauthorized(err)
-		} else if !strings.Contains("user/"+user.ID.String(), req.RawPath) {
-			return app.Forbidden()
-		}
+		return app.Response(Save(db, user, req.Body, app.IsPost(req)))
+	}
 
-		var j model.Job
-		if err = json.Unmarshal([]byte(req.Body), &j); err == nil {
-			err = j.Validate()
-		}
-
-		if err != nil {
-			return app.BadRequest(err)
-		}
-
-		if j.ID.IsZero() {
-			j.ID = app.NewUlid()
-		}
-		j.User = user
-
-		db := s3.NewWithContext(ctx)
-
-		var b []byte
-		if err = db.Put(j.Path(), app.MustMarshal(j)); err == nil {
-			w := model.NewWork(j)
-			j.WorkID = w.ID
-			j.Err = db.Put(w.Path(), app.MustMarshal(w))
-			b = app.MustMarshal(j)
-			err = db.Put(j.Path(), b)
-		}
-
-		return app.Response(b, err)
+	if app.IsGet(req) {
+		i, _ := strconv.Atoi(req.QueryStringParameters["size"])
+		return app.Response(FindAll(db, user, i, req.QueryStringParameters["after"]))
 	}
 
 	return app.NotImplemented(req)
+}
+
+func Save(db s3.Client, u model.User, s string, run bool) (b []byte, err error) {
+	var j model.Job
+
+	if j, err = model.MakeJob(u, []byte(s)); err == nil {
+		if run {
+			w := model.NewWork(j)
+			j.WorkID = w.ID
+			if err = db.Put(w.Key(), app.MustMarshal(w)); err != nil {
+				err = errors.Join(err, errors.New("failed to put work"))
+			}
+		}
+		b = app.MustMarshal(j)
+		err = db.Put(j.Key(), b)
+	}
+
+	return
+}
+
+func FindAll(db s3.Client, u model.User, size int, after string) ([]byte, error) {
+
+	keys, err := db.Keys(model.Job{User: u}.Path(), after, 1000)
+	var jj []model.Job
+	if err == nil {
+		for i, key := range keys {
+			if o, e := db.Get(key); e != nil {
+				err = errors.Join(err, e)
+			} else {
+				var j model.Job
+				j.User = u
+				app.MustUnmarshal(o, &j)
+
+				kk, ee := db.Keys(model.MakeWork(j).Path(), "", 1000)
+				fmt.Println(kk, ee)
+				if ee != nil {
+					err = errors.Join(err, ee)
+				} else {
+					for _, k := range kk {
+						if o, e = db.Get(k); e != nil {
+							err = errors.Join(err, e)
+						} else {
+							var w model.Work
+							if e = json.Unmarshal(o, &w); e != nil {
+								err = errors.Join(err, e)
+							} else {
+								j.Work = append(j.Work, w)
+							}
+						}
+					}
+				}
+
+				jj = append(jj, j)
+			}
+			if i >= size {
+				break
+			}
+		}
+	}
+
+	return app.MustMarshal(map[string]any{"items": jj, "size": len(jj)}), err
 }

@@ -26,7 +26,7 @@ func NewPassword(userID ulid.ULID, s string) (*Password, error) {
 }
 
 func (p Password) Path() string {
-	return fmt.Sprintf("%s/pork", p.User.Path())
+	return fmt.Sprintf("%s/pork", p.User.Key())
 }
 
 func (p Password) Compare() error {

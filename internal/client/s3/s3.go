@@ -72,6 +72,9 @@ func (c *client) Put(k string, data []byte) error {
 
 func (c *client) Keys(prefix, after string, size int) (keys []string, err error) {
 	maxKeys := int32(size)
+	if maxKeys == 0 {
+		maxKeys = 10
+	}
 	input := s3.ListObjectsV2Input{
 		Bucket:  app.Bucket(),
 		Prefix:  &prefix,

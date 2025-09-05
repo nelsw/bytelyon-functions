@@ -24,6 +24,7 @@ type Builder interface {
 	Methodable
 	Headers(map[string]string) Builder
 	Header(string, string) Builder
+	Bearer(string) Builder
 	Path(string) Builder
 	Query(string, any) Builder
 	Body(any) Builder
@@ -71,6 +72,11 @@ func (b builder) Headers(m map[string]string) Builder {
 
 func (b builder) Header(k, v string) Builder {
 	b.headers[k] = v
+	return b
+}
+
+func (b builder) Bearer(v string) Builder {
+	b.headers["authorization"] = "Bearer " + v
 	return b
 }
 
