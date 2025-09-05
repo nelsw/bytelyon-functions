@@ -63,7 +63,9 @@ func Save(db s3.Client, u model.User, s string, run bool) (b []byte, err error) 
 }
 
 func FindAll(db s3.Client, u model.User, size int, after string) ([]byte, error) {
-
+	if size == 0 {
+		size = 10
+	}
 	keys, err := db.Keys(model.Job{User: u}.Path(), after, 1000)
 	var jj []model.Job
 	if err == nil {
