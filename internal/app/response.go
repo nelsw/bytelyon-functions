@@ -138,7 +138,3 @@ func ServerError(err error) (events.LambdaFunctionURLResponse, error) {
 func Unauthorized(err error) (events.LambdaFunctionURLResponse, error) {
 	return response(http.StatusUnauthorized, err.Error())
 }
-
-func Forbidden() (events.LambdaFunctionURLResponse, error) {
-	return response(http.StatusForbidden, "")
-}
