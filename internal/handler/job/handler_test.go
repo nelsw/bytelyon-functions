@@ -41,9 +41,7 @@ func Test_Handler_Post(t *testing.T) {
 func Test_Handler_Get(t *testing.T) {
 	t.Setenv("APP_MODE", "test")
 	user := fakeUser()
-	_, _ = Save(s3.New(), user, string(app.MustMarshal(fakeJob())), true)
-	_, _ = Save(s3.New(), user, string(app.MustMarshal(fakeJob())), true)
-	_, _ = Save(s3.New(), user, string(app.MustMarshal(fakeJob())), true)
+	_, _ = Save(s3.New(), user, string(app.MustMarshal(fakeJob())), false)
 
 	req := test.
 		NewRequest(t).
@@ -61,7 +59,7 @@ func Test_Handler_Delete(t *testing.T) {
 	user := fakeUser()
 	job := fakeJob()
 	job.ID = app.NewUlid()
-	_, _ = Save(s3.New(), user, string(app.MustMarshal(job)), true)
+	_, _ = Save(s3.New(), user, string(app.MustMarshal(job)), false)
 
 	req := test.
 		NewRequest(t).
