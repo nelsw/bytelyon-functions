@@ -3,6 +3,7 @@ package job
 import (
 	"bytelyon-functions/internal/app"
 	"bytelyon-functions/internal/client/s3"
+	"bytelyon-functions/internal/handler/jwt"
 	"bytelyon-functions/internal/model"
 	"context"
 	"encoding/json"
@@ -21,7 +22,7 @@ func Handler(ctx context.Context, req events.LambdaFunctionURLRequest) (events.L
 		return app.OK()
 	}
 
-	user, err := model.ValidateJWT(ctx, req.Headers["authorization"])
+	user, err := jwt.Validate(ctx, req.Headers["authorization"])
 	if err != nil {
 		return app.Unauthorized(err)
 	}

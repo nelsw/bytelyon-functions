@@ -3,12 +3,19 @@ package test
 import (
 	"os"
 	"strings"
+	"testing"
 
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 )
 
-func InitLogger() {
+func Init(t *testing.T) {
+	t.Setenv("APP_MODE", "test")
+	t.Setenv("JWT_SECRET", "a-string-secret-at-least-256-bits-long")
+	initLogger()
+}
+
+func initLogger() {
 	log.Logger = log.Output(zerolog.ConsoleWriter{
 		Out: os.Stderr,
 		FormatLevel: func(a any) string {

@@ -1,8 +1,8 @@
 package lambda
 
 import (
+	"bytelyon-functions/internal/app"
 	"context"
-	"log"
 
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/lambda"
@@ -10,47 +10,31 @@ import (
 )
 
 type Service interface {
-	InvokeEvent(context.Context, string, []byte) ([]byte, error)
-	InvokeRequest(context.Context, string, []byte) ([]byte, error)
+	Request(context.Context, string, any) ([]byte, error)
 }
 
 type Client struct {
 	*lambda.Client
 }
 
-func (c *Client) InvokeEvent(ctx context.Context, name string, payload []byte) ([]byte, error) {
-	return c.invoke(ctx, types.InvocationTypeEvent, name, payload)
-}
+func (c *Client) Request(ctx context.Context, name string, a any) (out []byte, err error) {
 
-func (c *Client) InvokeRequest(ctx context.Context, name string, payload []byte) ([]byte, error) {
-	return c.invoke(ctx, types.InvocationTypeRequestResponse, name, payload)
-}
-
-func (c *Client) invoke(ctx context.Context, typ types.InvocationType, name string, payload []byte) ([]byte, error) {
-
-	output, err := c.Invoke(ctx, &lambda.InvokeInput{
+	var output *lambda.InvokeOutput
+	output, err = c.Invoke(ctx, &lambda.InvokeInput{
 		FunctionName:   &name,
-		InvocationType: typ,
-		Payload:        payload,
+		InvocationType: types.InvocationTypeRequestResponse,
+		Payload:        app.MustMarshal(a),
 	})
 
-	if err != nil {
-		return nil, err
+	if err == nil {
+		out = output.Payload
 	}
 
-	return output.Payload, nil
+	return
 }
 
-// New returns a new Lambda client with the default context.
-func New() Service {
-	return NewWithContext(context.Background())
-}
-
-// NewWithContext returns a new Lambda client with the provided context.
-func NewWithContext(ctx context.Context) Service {
-	cfg, err := config.LoadDefaultConfig(ctx)
-	if err != nil {
-		log.Fatalf("unable to load SDK config, %v", err)
-	}
+// New returns a new Lambda client with the provided context.
+func New(ctx context.Context) Service {
+	cfg, _ := config.LoadDefaultConfig(ctx)
 	return &Client{lambda.NewFromConfig(cfg)}
 }

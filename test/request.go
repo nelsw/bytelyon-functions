@@ -142,9 +142,7 @@ func (b builder) Build() events.LambdaFunctionURLRequest {
 }
 
 func NewRequest(t *testing.T) Builder {
-	InitLogger()
-	t.Setenv("APP_MODE", "test")
-	t.Setenv("JWT_SECRET", "a-string-secret-at-least-256-bits-long")
+	Init(t)
 	return builder{
 		headers: map[string]string{},
 		path:    []string{},

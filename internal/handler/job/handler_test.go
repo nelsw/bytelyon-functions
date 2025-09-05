@@ -3,6 +3,7 @@ package job
 import (
 	"bytelyon-functions/internal/app"
 	"bytelyon-functions/internal/client/s3"
+	"bytelyon-functions/internal/handler/jwt"
 	"bytelyon-functions/internal/model"
 	"bytelyon-functions/test"
 	"context"
@@ -30,7 +31,7 @@ func Test_Handler_Post(t *testing.T) {
 
 	req := test.
 		NewRequest(t).
-		Bearer(model.CreateJWTString(context.Background(), fakeUser())).
+		Bearer(jwt.CreateString(context.Background(), fakeUser())).
 		Post(fakeJob())
 
 	res, _ := Handler(context.Background(), req)
@@ -45,7 +46,7 @@ func Test_Handler_Get(t *testing.T) {
 
 	req := test.
 		NewRequest(t).
-		Bearer(model.CreateJWTString(context.Background(), user)).
+		Bearer(jwt.CreateString(context.Background(), user)).
 		Query("size", 2).
 		Get()
 
@@ -63,7 +64,7 @@ func Test_Handler_Delete(t *testing.T) {
 
 	req := test.
 		NewRequest(t).
-		Bearer(model.CreateJWTString(context.Background(), user)).
+		Bearer(jwt.CreateString(context.Background(), user)).
 		Query("id", job.ID).
 		Delete()
 

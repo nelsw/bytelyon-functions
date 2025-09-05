@@ -3,6 +3,7 @@ package login
 import (
 	"bytelyon-functions/internal/app"
 	"bytelyon-functions/internal/client/s3"
+	"bytelyon-functions/internal/handler/jwt"
 	"bytelyon-functions/internal/model"
 	"context"
 	"encoding/base64"
@@ -52,5 +53,5 @@ func Handler(ctx context.Context, req events.LambdaFunctionURLRequest) (events.L
 		return app.Unauthorized(errors.Join(err, errors.New("invalid password")))
 	}
 
-	return app.Response(model.CreateJWT(ctx, email.User()))
+	return app.Response(jwt.Create(ctx, email.User()))
 }
