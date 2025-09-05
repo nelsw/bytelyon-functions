@@ -11,6 +11,7 @@ import (
 	"strconv"
 
 	"github.com/aws/aws-lambda-go/events"
+	"github.com/oklog/ulid/v2"
 )
 
 func Handler(ctx context.Context, req events.LambdaFunctionURLRequest) (events.LambdaFunctionURLResponse, error) {
@@ -26,6 +27,10 @@ func Handler(ctx context.Context, req events.LambdaFunctionURLRequest) (events.L
 	}
 
 	db := s3.NewWithContext(ctx)
+
+	if app.IsDelete(req) {
+		return app.Err(Delete(db, user, req.QueryStringParameters["id"]))
+	}
 
 	if app.IsPut(req) || app.IsPost(req) {
 		return app.Response(Save(db, user, req.Body, app.IsPost(req)))
@@ -98,4 +103,12 @@ func FindAll(db s3.Client, u model.User, size int, after string) ([]byte, error)
 	}
 
 	return app.MustMarshal(map[string]any{"items": jj, "size": len(jj)}), err
+}
+
+func Delete(db s3.Client, u model.User, id string) error {
+	ID, err := ulid.Parse(id)
+	if err == nil {
+		err = db.Delete(model.Job{User: u, ID: ID}.Key())
+	}
+	return err
 }
