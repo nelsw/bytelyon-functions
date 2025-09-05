@@ -48,19 +48,16 @@ func CreateJWT(ctx context.Context, user User) (out []byte, err error) {
 }
 
 func CreateJWTString(ctx context.Context, user User) string {
-	log.Info().Any("user", user).Msg("create JWT")
 	out, err := CreateJWT(ctx, user)
 	if err != nil {
 		log.Panic().Err(err).Send()
 	}
 	var res JWTResponse
 	app.MustUnmarshal(out, &res)
-	log.Err(err).Str("token", res.Token).Msg("create JWT")
 	return res.Token
 }
 
 func ValidateJWT(ctx context.Context, tkn string) (u User, err error) {
-	log.Info().Str("token", tkn).Msg("validate JWT")
 	var out []byte
 	out, err = lambda.NewWithContext(ctx).InvokeRequest(ctx, "bytelyon-jwt", app.MustMarshal(JWTRequest{
 		Type:  JWTValidation,
@@ -74,6 +71,5 @@ func ValidateJWT(ctx context.Context, tkn string) (u User, err error) {
 		app.MustUnmarshal(out, &res)
 		u = res.Claims.Data
 	}
-	log.Err(err).Any("user", u).Msg("validate JWT")
 	return
 }
