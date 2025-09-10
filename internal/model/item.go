@@ -8,12 +8,6 @@ import (
 	"github.com/rs/zerolog"
 )
 
-type RSS struct {
-	Channel struct {
-		Items Items `xml:"item"`
-	} `xml:"channel"`
-}
-
 type Items []Item
 
 func (ii Items) MarshalZerologArray(a *zerolog.Array) {

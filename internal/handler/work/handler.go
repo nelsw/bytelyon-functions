@@ -26,9 +26,13 @@ func Job(job model.Job) error {
 	}
 }
 
-func newsJob(job model.Job) error {
+func newsJob(job model.Job) (err error) {
+
 	f := func(u string) (model.Items, error) {
+
+		// todo - handle spaces
 		u = fmt.Sprintf(u, strings.Join(job.Keywords, ","))
+
 		res, e := http.Get(u)
 		if e != nil {
 			return nil, errors.Join(errors.New("failed to http.Get url"), e)
@@ -47,7 +51,11 @@ func newsJob(job model.Job) error {
 			b = []byte(str)
 		}
 
-		var rss model.RSS
+		var rss struct {
+			Channel struct {
+				Items model.Items `xml:"item"`
+			} `xml:"channel"`
+		}
 		if e = xml.Unmarshal(b, &rss); e != nil {
 			return nil, errors.Join(errors.New("failed to unmarshal xml"), e)
 		}
@@ -56,7 +64,6 @@ func newsJob(job model.Job) error {
 	}
 
 	var items model.Items
-	var err error
 	for _, u := range job.URLs {
 		ii, e := f(u)
 		if e != nil {
@@ -67,9 +74,10 @@ func newsJob(job model.Job) error {
 		}
 	}
 
-	if len(items) > 0 {
-		// todo - put a work object on the bus
+	if len(items) == 0 {
+		return err
 	}
 
-	return err
+	// todo - put a work object on the bus
+	return
 }
