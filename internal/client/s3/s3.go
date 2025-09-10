@@ -21,7 +21,8 @@ type Client interface {
 
 type client struct {
 	*s3.Client
-	ctx context.Context
+	ctx    context.Context
+	bucket string
 }
 
 func (c *client) Move(oldKey, newKey string) error {
@@ -40,7 +41,7 @@ func (c *client) Move(oldKey, newKey string) error {
 
 func (c *client) Delete(k string) error {
 	_, err := c.DeleteObject(c.ctx, &s3.DeleteObjectInput{
-		Bucket: app.Bucket(),
+		Bucket: &c.bucket,
 		Key:    key(k),
 	})
 	return err
@@ -49,7 +50,7 @@ func (c *client) Delete(k string) error {
 func (c *client) Get(k string) (b []byte, err error) {
 	var out *s3.GetObjectOutput
 	out, err = c.GetObject(c.ctx, &s3.GetObjectInput{
-		Bucket: app.Bucket(),
+		Bucket: &c.bucket,
 		Key:    key(k),
 	})
 	if err == nil {
@@ -63,7 +64,7 @@ func (c *client) Get(k string) (b []byte, err error) {
 
 func (c *client) Put(k string, data []byte) error {
 	_, err := c.PutObject(c.ctx, &s3.PutObjectInput{
-		Bucket: app.Bucket(),
+		Bucket: &c.bucket,
 		Key:    key(k),
 		Body:   bytes.NewReader(data),
 	})
@@ -76,7 +77,7 @@ func (c *client) Keys(prefix, after string, size int) (keys []string, err error)
 		maxKeys = 10
 	}
 	input := s3.ListObjectsV2Input{
-		Bucket:  app.Bucket(),
+		Bucket:  &c.bucket,
 		Prefix:  &prefix,
 		MaxKeys: &maxKeys,
 	}
@@ -105,5 +106,9 @@ func key(s string) *string {
 // New returns a new S3 client with the provided context.
 func New(ctx context.Context) Client {
 	cfg, _ := config.LoadDefaultConfig(ctx)
-	return &client{s3.NewFromConfig(cfg), ctx}
+	return &client{
+		s3.NewFromConfig(cfg),
+		ctx,
+		"bytelyon-db-" + app.Mode(),
+	}
 }

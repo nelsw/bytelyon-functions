@@ -14,8 +14,3 @@ func Mode() string {
 	}
 	return mode
 }
-
-func Bucket() *string {
-	s := "bytelyon-db-" + Mode()
-	return &s
-}
