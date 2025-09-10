@@ -40,7 +40,7 @@ func Test_Handler_Post(t *testing.T) {
 func Test_Handler_Get(t *testing.T) {
 	test.Init(t)
 	user := fakeUser()
-	_, _ = Save(test.CTX, user, string(app.MustMarshal(fakeJob())), false)
+	_, _ = Save(test.CTX, user.ID, app.MustMarshal(fakeJob()), false)
 
 	req := test.
 		NewRequest(t).
@@ -58,7 +58,7 @@ func Test_Handler_Delete(t *testing.T) {
 	user := fakeUser()
 	job := fakeJob()
 	job.ID = app.NewUlid()
-	_, _ = Save(test.CTX, user, string(app.MustMarshal(job)), false)
+	_, _ = Save(test.CTX, user.ID, app.MustMarshal(job), false)
 
 	req := test.
 		NewRequest(t).

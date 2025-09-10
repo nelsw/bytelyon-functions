@@ -4,11 +4,11 @@ import (
 	"bytelyon-functions/internal/app"
 	"bytelyon-functions/internal/client/s3"
 	"bytelyon-functions/internal/handler/jwt"
+	"bytelyon-functions/internal/handler/work"
 	"bytelyon-functions/internal/model"
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"strconv"
 
 	"github.com/aws/aws-lambda-go/events"
@@ -22,98 +22,120 @@ func Handler(ctx context.Context, req events.LambdaFunctionURLRequest) (events.L
 		return app.OK()
 	}
 
-	user, err := jwt.Validate(ctx, req.Headers["authorization"])
-	if err != nil {
+	var userID ulid.ULID
+	if user, err := jwt.Validate(ctx, req.Headers["authorization"]); err != nil {
 		return app.Unauthorized(err)
+	} else {
+		userID = user.ID
 	}
 
 	if app.IsDelete(req) {
-		return app.Err(Delete(ctx, user, req.QueryStringParameters["id"]))
+		return app.Err(Delete(ctx, userID, req.QueryStringParameters["id"]))
 	}
 
 	if app.IsPut(req) || app.IsPost(req) {
-		return app.Response(Save(ctx, user, req.Body, app.IsPost(req)))
+		job, err := Save(ctx, userID, []byte(req.Body), app.IsPost(req))
+		if err != nil {
+			return app.BadRequest(err)
+		}
+		return app.Marshall(job)
 	}
 
 	if app.IsGet(req) {
 		i, _ := strconv.Atoi(req.QueryStringParameters["size"])
-		return app.Response(FindAll(ctx, user, i, req.QueryStringParameters["after"]))
+		page, err := FindAll(ctx, userID, i, req.QueryStringParameters["after"])
+		if err != nil {
+			return app.BadRequest(err)
+		}
+		return app.Marshall(page)
 	}
 
 	return app.NotImplemented(req)
 }
 
-func Save(ctx context.Context, u model.User, s string, run bool) (b []byte, err error) {
-	db := s3.New(ctx)
+func Save(ctx context.Context, userID ulid.ULID, in []byte, run bool) (job model.Job, err error) {
 
-	var j model.Job
+	_ = json.Unmarshal(in, &job)
+	if err = job.Validate(); err != nil {
+		return
+	}
 
-	if j, err = model.MakeJob(u, []byte(s)); err == nil {
-		if run {
-			w := model.NewWork(j)
-			j.WorkID = w.ID
-			if err = db.Put(w.Key(), app.MustMarshal(w)); err != nil {
-				err = errors.Join(err, errors.New("failed to put work"))
-			}
+	job.UserID = userID
+
+	if job.ID.IsZero() {
+		job.ID = app.NewUlid()
+	}
+
+	if job.Type == model.NewsJobType {
+		job.URLs = []string{
+			"https://news.google.com/rss/search?q=%s&hl=en-US&gl=US&ceid=US:en",
+			"https://www.bing.com/news/search?format=rss&q=%s",
+			"https://www.bing.com/search?format=rss&q=%s",
 		}
-		b = app.MustMarshal(j)
-		err = db.Put(j.Key(), b)
+	}
+
+	if err = s3.New(ctx).Put(job.Key(), app.MustMarshal(job)); err != nil {
+		return
+	}
+
+	if run {
+		err = work.Job(job)
 	}
 
 	return
 }
 
-func FindAll(ctx context.Context, u model.User, size int, after string) ([]byte, error) {
-	if size == 0 {
+func FindAll(ctx context.Context, userID ulid.ULID, size int, after string) (page model.Page, err error) {
+
+	if size < 1 || size > 10 {
 		size = 10
 	}
-	db := s3.New(ctx)
-	keys, err := db.Keys(model.Job{User: u}.Path(), after, 1000)
-	var jj []model.Job
-	if err == nil {
-		for i, key := range keys {
-			if o, e := db.Get(key); e != nil {
-				err = errors.Join(err, e)
-			} else {
-				var j model.Job
-				j.User = u
-				app.MustUnmarshal(o, &j)
 
-				kk, ee := db.Keys(model.MakeWork(j).Path(), "", 1000)
-				fmt.Println(kk, ee)
-				if ee != nil {
-					err = errors.Join(err, ee)
-				} else {
-					for _, k := range kk {
-						if o, e = db.Get(k); e != nil {
-							err = errors.Join(err, e)
-						} else {
-							var w model.Work
-							if e = json.Unmarshal(o, &w); e != nil {
-								err = errors.Join(err, e)
-							} else {
-								j.Work = append(j.Work, w)
-							}
-						}
-					}
+	db := s3.New(ctx)
+	prefix := model.Job{UserID: userID}.Path()
+
+	for {
+		var keys []string
+		if keys, err = db.Keys(prefix, after, 1000); err != nil {
+			return
+		}
+
+		if len(keys) == 0 {
+			return
+		}
+
+		page.Total += len(keys)
+
+		if page.Items == nil {
+			for _, key := range keys {
+
+				o, e := db.Get(key)
+				if e != nil {
+					err = errors.Join(err, e)
+					continue
 				}
 
-				jj = append(jj, j)
-			}
-			if i >= size {
-				break
+				var job model.Job
+				app.MustUnmarshal(o, &job)
+				// todo - items
+				page.Items = append(page.Items, job)
+				page.Size += 1
 			}
 		}
-	}
 
-	return app.MustMarshal(map[string]any{"items": jj, "size": len(jj)}), err
+		if len(keys) == 1000 {
+			after = keys[999]
+			continue
+		}
+
+		return
+	}
 }
 
-func Delete(ctx context.Context, u model.User, id string) error {
-	db := s3.New(ctx)
+func Delete(ctx context.Context, userID ulid.ULID, id string) error {
 	ID, err := ulid.Parse(id)
-	if err == nil {
-		err = db.Delete(model.Job{User: u, ID: ID}.Key())
+	if err != nil {
+		return err
 	}
-	return err
+	return s3.New(ctx).Delete(model.Job{ID: ID, UserID: userID}.Key())
 }
