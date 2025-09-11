@@ -4,6 +4,8 @@ import (
 	"bytelyon-functions/internal/client/s3"
 	"errors"
 	"fmt"
+	"maps"
+	"slices"
 	"strings"
 
 	"github.com/oklog/ulid/v2"
@@ -21,41 +23,51 @@ func (u User) Key() string {
 	return fmt.Sprintf("%s/%s", UserPath, u.ID)
 }
 
-func FindAllUsers(db s3.Client) (users Users, err error) {
-	var keys []string
+func FindAllUsers(db s3.Client) (Users, error) {
+
+	m := map[string]User{}
 	var after string
+	var err error
 	for {
-		kk, e := db.Keys(UserPath, after, 1000)
-		if e != nil {
-			err = errors.Join(err, e)
-			continue
+
+		var keys []string
+		if keys, err = db.Keys(UserPath, after, "", 1000); err != nil {
+			log.Err(err).Msg("FindAllUsers")
+			return nil, err
 		}
-		for _, k := range kk {
-			keys = append(keys, k)
+
+		for _, k := range keys {
+
+			if strings.HasPrefix(k, "user/") && strings.HasSuffix(k, "/_.json") {
+
+				k = strings.TrimPrefix(k, "user/")
+				k = strings.TrimSuffix(k, "/_.json")
+
+				if len(k) > 26 {
+					continue
+				}
+
+				if id, e := ulid.ParseStrict(k); e != nil {
+					err = errors.Join(err, e)
+				} else if _, ok := m[k]; !ok {
+					m[k] = User{ID: id}
+				}
+			}
 		}
+
 		if len(keys) == 1000 {
 			after = keys[999]
 			continue
 		}
+
 		break
 	}
 
-	m := map[string]ulid.ULID{}
-	for _, k := range keys {
-		v := strings.Split(k, "/")[1]
-		ID, e := ulid.Parse(v)
-		if e != nil {
-			continue
-		}
-		m[v] = ID
-	}
+	users := slices.Collect(maps.Values(m))
 
-	for _, id := range m {
-		users = append(users, User{ID: id})
-	}
+	log.Err(err).Int("count", len(users)).Msg("FindAllUsers")
 
-	log.Err(err).Int("users", len(users)).Msg("find all users")
-	return
+	return users, err
 }
 
 func (u User) FindAllJobs(db s3.Client) (jobs Jobs, err error) {
@@ -63,7 +75,7 @@ func (u User) FindAllJobs(db s3.Client) (jobs Jobs, err error) {
 	prefix := Job{UserID: u.ID}.Path()
 	var paths []string
 	for {
-		keys, e := db.Keys(prefix, after, 1000) // todo - define job limit
+		keys, e := db.Keys(prefix, after, "", 1000) // todo - define job limit
 		if e != nil {
 			err = errors.Join(err, e)
 			continue

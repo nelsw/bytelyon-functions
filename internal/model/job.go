@@ -77,7 +77,7 @@ func (j Job) SaveWorkResult(db s3.Client, err error) {
 func (j Job) Items(db s3.Client) (items Items, err error) {
 	var keys []string
 	fmt.Println(j.Key() + "/" + ItemPath)
-	if keys, err = db.Keys(j.Key()+"/"+ItemPath, "", 1000); err != nil {
+	if keys, err = db.Keys(j.Key()+"/"+ItemPath, "", "", 1000); err != nil {
 		return
 	}
 	for _, key := range keys {
