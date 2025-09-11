@@ -122,7 +122,7 @@ func FindAll(db s3.Client, user model.User, size int, after string) (page model.
 		}
 	}
 
-	return
+	return page, err
 }
 
 func Delete(db s3.Client, userID ulid.ULID, id string) error {
