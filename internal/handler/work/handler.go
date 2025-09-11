@@ -1,39 +1,68 @@
 package work
 
 import (
+	"bytelyon-functions/internal/client/s3"
 	"bytelyon-functions/internal/model"
+	"context"
 	"encoding/xml"
 	"errors"
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"regexp"
 	"strings"
 )
 
 var bingRegexp = regexp.MustCompile("</?News(:\\w+)>")
 
-func Handler() {
-	// todo - get all jobs and work all that are ready
-}
+func Handler(ctx context.Context) {
 
-func Job(job model.Job) error {
-	switch job.Type {
-	case model.NewsJobType:
-		return newsJob(job)
-	default:
-		return fmt.Errorf("unknown job type [%d]", job.Type)
+	db := s3.New(ctx)
+
+	users, err := model.FindAllUsers(db)
+	if err != nil {
+		return
+	}
+
+	for _, user := range users {
+		jobs, e := user.FindAllJobs(db)
+		if e != nil {
+			continue
+		}
+		for _, job := range jobs {
+			if job.ReadyForWork() {
+				Now(db, job)
+			}
+		}
 	}
 }
 
-func newsJob(job model.Job) (err error) {
+func Now(db s3.Client, job model.Job) {
 
-	f := func(u string) (model.Items, error) {
+	var work model.Work
+	var err error
 
-		// todo - handle spaces
-		u = fmt.Sprintf(u, strings.Join(job.Keywords, ","))
+	switch job.Type {
+	case model.NewsJobType:
+		work, err = newsJob(db, job)
+	default:
+		err = fmt.Errorf("unknown job type [%d]", job.Type)
+	}
 
-		res, e := http.Get(u)
+	job.SaveWorkResult(db, err)
+
+	if !work.IsEmpty() {
+		work.Job = job
+		// todo - python ƒ
+	}
+}
+
+func newsJob(db s3.Client, job model.Job) (work model.Work, err error) {
+
+	f := func(URL string) (model.Items, error) {
+
+		res, e := http.Get(URL)
 		if e != nil {
 			return nil, errors.Join(errors.New("failed to http.Get url"), e)
 		}
@@ -44,7 +73,7 @@ func newsJob(job model.Job) (err error) {
 			return nil, errors.Join(errors.New("failed to io.ReadAll response body"), e)
 		}
 
-		if strings.Contains(u, "https://www.bing.com/") {
+		if strings.Contains(URL, "https://www.bing.com/") {
 			str := bingRegexp.ReplaceAllStringFunc(string(b), func(s string) string {
 				return strings.ReplaceAll(s, ":", "_")
 			})
@@ -63,21 +92,32 @@ func newsJob(job model.Job) (err error) {
 		return rss.Channel.Items, nil
 	}
 
+	var keywords []string
+	for _, keyword := range job.Keywords {
+		keywords = append(keywords, url.QueryEscape(keyword))
+	}
+
 	var items model.Items
 	for _, u := range job.URLs {
-		ii, e := f(u)
-		if e != nil {
+		URL := strings.ReplaceAll(u, "{KEYWORD_QUERY}", strings.Join(keywords, "+"))
+		if ii, e := f(URL); e != nil {
 			err = errors.Join(err, e)
-		}
-		if ii != nil {
+		} else if ii != nil {
 			items = append(items, ii...)
 		}
 	}
 
 	if len(items) == 0 {
-		return err
+		return
 	}
 
-	// todo - put a work object on the bus
+	for _, item := range items {
+		if item.IsRedirect() {
+			work.Items = append(work.Items, item)
+		} else if e := item.Create(db, job); e != nil {
+			err = errors.Join(err, e)
+		}
+	}
+
 	return
 }

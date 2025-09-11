@@ -1,24 +1,25 @@
 package model
 
 import (
+	"bytelyon-functions/internal/app"
+	"bytelyon-functions/internal/client/s3"
+	"encoding/base64"
 	"encoding/xml"
+	"fmt"
 	"strings"
 	"time"
 
-	"github.com/rs/zerolog"
+	"github.com/oklog/ulid/v2"
 )
 
+const ItemPath = "item"
+
 type Items []Item
-
-func (ii Items) MarshalZerologArray(a *zerolog.Array) {
-	for _, i := range ii {
-		a.Object(i)
-	}
-}
-
 type Item struct {
+	Job    Job       `json:"-" xml:"-"`
+	JobID  ulid.ULID `json:"job_id" xml:"-"`
+	URL    string    `json:"link" xml:"link"`
 	Title  string    `json:"title" xml:"title"`
-	Link   string    `json:"link" xml:"link"`
 	Time   *DateTime `json:"published" xml:"pubDate"`
 	Source *struct {
 		URL   string `json:"url,omitempty" xml:"url,attr"`
@@ -31,8 +32,26 @@ type Item struct {
 	NewsImageMaxHeight int    `json:"news_image_max_height,omitempty" xml:"News_ImageMaxHeight"`
 }
 
-func (i Item) MarshalZerologObject(e *zerolog.Event) {
-	e.Str("title", i.Title).Str("url", i.Link)
+func (i Item) IsRedirect() bool {
+	return strings.HasPrefix("https://news.google.com/", i.URL) ||
+		strings.HasPrefix("https://bing.com/news/", i.URL)
+}
+
+func (i Item) Create(db s3.Client, j Job) error {
+	i.Job = j
+	i.JobID = j.ID
+	if err := db.Put(i.Key(), app.MustMarshal(i)); err != nil {
+		return err
+	}
+	return MakeURL(i.URL).Create(db)
+}
+
+func (i Item) Path() string {
+	return fmt.Sprintf("%s/%s", i.Job.Key(), ItemPath)
+}
+
+func (i Item) Key() string {
+	return fmt.Sprintf("%s/%s", i.Path(), base64.URLEncoding.EncodeToString([]byte(i.URL)))
 }
 
 type DateTime time.Time

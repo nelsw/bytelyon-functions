@@ -22,20 +22,20 @@ func Handler(ctx context.Context, req events.LambdaFunctionURLRequest) (events.L
 		return app.OK()
 	}
 
-	var userID ulid.ULID
-	if user, err := jwt.Validate(ctx, req.Headers["authorization"]); err != nil {
+	user, err := jwt.Validate(ctx, req.Headers["authorization"])
+	if err != nil {
 		return app.Unauthorized(err)
-	} else {
-		userID = user.ID
 	}
 
+	db := s3.New(ctx)
+
 	if app.IsDelete(req) {
-		return app.Err(Delete(ctx, userID, req.QueryStringParameters["id"]))
+		return app.Err(Delete(db, user.ID, req.QueryStringParameters["id"]))
 	}
 
 	if app.IsPut(req) || app.IsPost(req) {
-		job, err := Save(ctx, userID, []byte(req.Body), app.IsPost(req))
-		if err != nil {
+		var job model.Job
+		if job, err = Save(db, user.ID, []byte(req.Body), app.IsPost(req)); err != nil {
 			return app.BadRequest(err)
 		}
 		return app.Marshall(job)
@@ -43,8 +43,11 @@ func Handler(ctx context.Context, req events.LambdaFunctionURLRequest) (events.L
 
 	if app.IsGet(req) {
 		i, _ := strconv.Atoi(req.QueryStringParameters["size"])
-		page, err := FindAll(ctx, userID, i, req.QueryStringParameters["after"])
-		if err != nil {
+		if i < 1 || i > 10 {
+			i = 10
+		}
+		var page model.Page
+		if page, err = FindAll(db, user, i, req.QueryStringParameters["after"]); err != nil {
 			return app.BadRequest(err)
 		}
 		return app.Marshall(page)
@@ -53,7 +56,7 @@ func Handler(ctx context.Context, req events.LambdaFunctionURLRequest) (events.L
 	return app.NotImplemented(req)
 }
 
-func Save(ctx context.Context, userID ulid.ULID, in []byte, run bool) (job model.Job, err error) {
+func Save(db s3.Client, userID ulid.ULID, in []byte, run bool) (job model.Job, err error) {
 
 	_ = json.Unmarshal(in, &job)
 	if err = job.Validate(); err != nil {
@@ -68,74 +71,60 @@ func Save(ctx context.Context, userID ulid.ULID, in []byte, run bool) (job model
 
 	if job.Type == model.NewsJobType {
 		job.URLs = []string{
-			"https://news.google.com/rss/search?q=%s&hl=en-US&gl=US&ceid=US:en",
-			"https://www.bing.com/news/search?format=rss&q=%s",
-			"https://www.bing.com/search?format=rss&q=%s",
+			"https://news.google.com/rss/search?q={KEYWORD_QUERY}&hl=en-US&gl=US&ceid=US:en",
+			"https://www.bing.com/news/search?format=rss&q={KEYWORD_QUERY}",
+			"https://www.bing.com/search?format=rss&q={KEYWORD_QUERY}",
 		}
 	}
 
-	if err = s3.New(ctx).Put(job.Key(), app.MustMarshal(job)); err != nil {
+	if err = db.Put(model.JobKey(userID, job.ID), app.MustMarshal(job)); err != nil {
 		return
 	}
 
 	if run {
-		err = work.Job(job)
+		work.Now(db, job)
 	}
 
 	return
 }
 
-func FindAll(ctx context.Context, userID ulid.ULID, size int, after string) (page model.Page, err error) {
+func FindAll(db s3.Client, user model.User, size int, after string) (page model.Page, err error) {
 
-	if size < 1 || size > 10 {
-		size = 10
+	var jobs model.Jobs
+	if jobs, err = user.FindAllJobs(db); err != nil {
+		return
+	} else if page.Total = len(jobs); page.IsEmpty() {
+		return
 	}
 
-	db := s3.New(ctx)
-	prefix := model.Job{UserID: userID}.Path()
+	afterFound := after == ""
+	for _, job := range jobs {
 
-	for {
-		var keys []string
-		if keys, err = db.Keys(prefix, after, 1000); err != nil {
-			return
+		if page.Size >= size {
+			break
 		}
 
-		if len(keys) == 0 {
-			return
+		if !afterFound && job.ID.String() == after {
+			afterFound = true
 		}
 
-		page.Total += len(keys)
-
-		if page.Items == nil {
-			for _, key := range keys {
-
-				o, e := db.Get(key)
-				if e != nil {
-					err = errors.Join(err, e)
-					continue
-				}
-
-				var job model.Job
-				app.MustUnmarshal(o, &job)
-				// todo - items
-				page.Items = append(page.Items, job)
-				page.Size += 1
-			}
-		}
-
-		if len(keys) == 1000 {
-			after = keys[999]
+		if !afterFound {
 			continue
 		}
 
-		return
+		var w model.Work
+		if e := db.Find(model.JobKey(user.ID, job.ID), &w.Job); e != nil {
+			err = errors.Join(err, e)
+		} else if w.Items, e = job.Items(db); e != nil {
+			err = errors.Join(err, e)
+		} else {
+			page = page.AddItem(w)
+		}
 	}
+
+	return
 }
 
-func Delete(ctx context.Context, userID ulid.ULID, id string) error {
-	ID, err := ulid.Parse(id)
-	if err != nil {
-		return err
-	}
-	return s3.New(ctx).Delete(model.Job{ID: ID, UserID: userID}.Key())
+func Delete(db s3.Client, userID ulid.ULID, id string) error {
+	return db.Delete(model.JobKey(userID, id))
 }
