@@ -80,7 +80,7 @@ func (u User) FindAllJobs(db s3.Client) (jobs Jobs, err error) {
 			err = errors.Join(err, e)
 			continue
 		}
-		fmt.Println(keys)
+
 		for _, key := range keys {
 			paths = append(paths, key)
 		}

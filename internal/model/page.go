@@ -10,8 +10,14 @@ func (p Page) IsEmpty() bool {
 	return p.Total == 0
 }
 
-func (p Page) AddItem(a any) Page {
+func (p Page) Add(a any) Page {
 	p.Items = append(p.Items, a)
-	p.Size = len(p.Items)
+	p.Size++
+	return p
+}
+
+func (p Page) Set(a []any) Page {
+	p.Items = a
+	p.Size = len(a)
 	return p
 }

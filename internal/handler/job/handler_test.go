@@ -9,12 +9,11 @@ import (
 	"testing"
 
 	"github.com/brianvoe/gofakeit/v7"
-	"github.com/oklog/ulid/v2"
 	"github.com/stretchr/testify/assert"
 )
 
 func fakeUser() model.User {
-	return model.User{ID: ulid.MustParse("01K4V981DTE7QZQT7N9HYFX7T6")}
+	return model.User{ID: app.NewUlid()}
 }
 
 func fakeJob() model.Job {

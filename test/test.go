@@ -1,6 +1,8 @@
 package test
 
 import (
+	"bytelyon-functions/internal/app"
+	"bytelyon-functions/internal/model"
 	"context"
 	"os"
 	"strings"
@@ -42,4 +44,8 @@ func initLogger() {
 			return color + level + "\033[0m" // Reset color after level
 		},
 	})
+}
+
+func FakeUser() model.User {
+	return model.User{ID: app.NewUlid()}
 }
