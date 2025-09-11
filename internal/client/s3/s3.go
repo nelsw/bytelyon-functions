@@ -18,7 +18,7 @@ type Client interface {
 	Get(string) ([]byte, error)
 	Put(string, []byte) error
 	Move(string, string) error
-	Keys(string, string, int) ([]string, error)
+	Keys(string, string, string, int) ([]string, error)
 }
 
 type client struct {
@@ -81,15 +81,16 @@ func (c *client) Put(k string, data []byte) error {
 	return err
 }
 
-func (c *client) Keys(prefix, after string, size int) (keys []string, err error) {
+func (c *client) Keys(prefix, after, delim string, size int) (keys []string, err error) {
 	maxKeys := int32(size)
 	if maxKeys == 0 {
 		maxKeys = 10
 	}
 	input := s3.ListObjectsV2Input{
-		Bucket:  &c.bucket,
-		Prefix:  &prefix,
-		MaxKeys: &maxKeys,
+		Bucket:    &c.bucket,
+		Prefix:    &prefix,
+		MaxKeys:   &maxKeys,
+		Delimiter: &delim,
 	}
 	if after != "" {
 		input.StartAfter = &after
