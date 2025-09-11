@@ -2,11 +2,12 @@ package work
 
 import (
 	"bytelyon-functions/internal/client/s3"
+	"bytelyon-functions/internal/handler/sitemap"
 	"bytelyon-functions/internal/model"
 	"context"
 	"encoding/xml"
 	"errors"
-	"fmt"
+	"github.com/rs/zerolog/log"
 	"io"
 	"net/http"
 	"net/url"
@@ -40,22 +41,22 @@ func Handler(ctx context.Context) {
 
 func Now(db s3.Client, job model.Job) {
 
-	var work model.Work
-	var err error
-
-	switch job.Type {
-	case model.NewsJobType:
-		work, err = newsJob(db, job)
-	default:
-		err = fmt.Errorf("unknown job type [%d]", job.Type)
+	if job.Type == model.SitemapJobType {
+		sitemap.Handle(db, job.UserID, job.URLs[0])
+		job.SaveWorkResult(db, nil)
+		return
 	}
 
-	job.SaveWorkResult(db, err)
-
-	if !work.IsEmpty() {
-		work.Job = job
-		// todo - python ƒ
+	if job.Type == model.NewsJobType {
+		work, err := newsJob(db, job)
+		job.SaveWorkResult(db, err)
+		if !work.IsEmpty() {
+			// todo - use selenium to handle bot defense
+		}
+		return
 	}
+
+	log.Warn().Msgf("unknown job type: %d", job.Type)
 }
 
 func newsJob(db s3.Client, job model.Job) (work model.Work, err error) {

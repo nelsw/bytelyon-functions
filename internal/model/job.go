@@ -18,10 +18,12 @@ type JobType int
 
 const (
 	NewsJobType JobType = iota + 1
+	SitemapJobType
 )
 
 var JobTypes = map[JobType]string{
-	NewsJobType: "news",
+	NewsJobType:    "news",
+	SitemapJobType: "sitemap",
 }
 
 type Jobs []Job
@@ -50,6 +52,9 @@ func (j Job) Validate() (err error) {
 
 	if _, ok := JobTypes[j.Type]; !ok {
 		err = errors.Join(fmt.Errorf("job type must be set"))
+	}
+	if j.Type == SitemapJobType && len(j.URLs) == 0 {
+		err = errors.Join(fmt.Errorf("job url must be set"))
 	}
 	if len(j.Keywords) == 0 {
 		err = errors.Join(fmt.Errorf("job keywords must be set"))

@@ -1,4 +1,4 @@
-package main
+package sitemap
 
 import (
 	"bytelyon-functions/internal/app"
@@ -164,6 +164,16 @@ func (r *Request) Fetch(URL string) (urls, links []string, err error) {
 }
 
 func Handler(ctx context.Context, req Request) {
+	Handle(s3.New(ctx), req.UserID, req.URL)
+}
+
+func Handle(db s3.Client, userID ulid.ULID, url string) {
+
+	req := Request{
+		UserID: userID,
+		URL:    url,
+		Depth:  15,
+	}
 
 	// start with the holiest string homogenization ƒ
 	req.URL = strings.ToLower(strings.TrimSpace(req.URL))
@@ -210,7 +220,7 @@ func Handler(ctx context.Context, req Request) {
 	req.Tracked = slices.Sorted(maps.Keys(crawler.tracked))
 
 	// save it
-	err := s3.New(ctx).Put(req.Key(), app.MustMarshal(req))
+	err := db.Put(req.Key(), app.MustMarshal(req))
 
 	// log the results
 	log.Logger.

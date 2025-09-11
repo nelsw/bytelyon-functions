@@ -1,4 +1,4 @@
-package main
+package sitemap
 
 import (
 	"bytelyon-functions/internal/app"
