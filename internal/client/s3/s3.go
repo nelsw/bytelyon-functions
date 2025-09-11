@@ -4,6 +4,7 @@ import (
 	"bytelyon-functions/internal/app"
 	"bytes"
 	"context"
+	"encoding/json"
 	"io"
 	"strings"
 
@@ -13,6 +14,7 @@ import (
 
 type Client interface {
 	Delete(string) error
+	Find(string, any) error
 	Get(string) ([]byte, error)
 	Put(string, []byte) error
 	Move(string, string) error
@@ -45,6 +47,14 @@ func (c *client) Delete(k string) error {
 		Key:    key(k),
 	})
 	return err
+}
+
+func (c *client) Find(k string, a any) error {
+	out, err := c.Get(k)
+	if err != nil {
+		return err
+	}
+	return json.Unmarshal(out, &a)
 }
 
 func (c *client) Get(k string) (b []byte, err error) {
