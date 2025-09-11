@@ -5,6 +5,7 @@ import (
 	"bytelyon-functions/internal/client/s3"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/oklog/ulid/v2"
@@ -75,10 +76,15 @@ func (j Job) SaveWorkResult(db s3.Client, err error) {
 
 func (j Job) Items(db s3.Client) (items Items, err error) {
 	var keys []string
+	fmt.Println(j.Key() + "/" + ItemPath)
 	if keys, err = db.Keys(j.Key()+"/"+ItemPath, "", 1000); err != nil {
 		return
 	}
 	for _, key := range keys {
+		if !strings.Contains(key, ItemPath) {
+			continue
+		}
+		fmt.Println(key)
 		var item Item
 		if e := db.Find(key, &item); e != nil {
 			err = errors.Join(e, e)

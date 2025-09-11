@@ -115,7 +115,7 @@ func FindAll(db s3.Client, user model.User, size int, after string) (page model.
 		var w model.Work
 		if e := db.Find(model.JobKey(user.ID, job.ID), &w.Job); e != nil {
 			err = errors.Join(err, e)
-		} else if w.Items, e = job.Items(db); e != nil {
+		} else if w.Items, e = w.Job.Items(db); e != nil {
 			err = errors.Join(err, e)
 		} else {
 			page = page.AddItem(w)

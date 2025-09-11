@@ -22,15 +22,16 @@ func (u User) Key() string {
 }
 
 func FindAllUsers(db s3.Client) (users Users, err error) {
+	var keys []string
 	var after string
 	for {
-		keys, e := db.Keys(UserPath, after, 1000)
+		kk, e := db.Keys(UserPath, after, 1000)
 		if e != nil {
 			err = errors.Join(err, e)
 			continue
 		}
-		for _, key := range keys {
-			users = append(users, User{ID: ulid.MustParse(key)})
+		for _, k := range kk {
+			keys = append(keys, k)
 		}
 		if len(keys) == 1000 {
 			after = keys[999]
@@ -38,6 +39,21 @@ func FindAllUsers(db s3.Client) (users Users, err error) {
 		}
 		break
 	}
+
+	m := map[string]ulid.ULID{}
+	for _, k := range keys {
+		v := strings.Split(k, "/")[1]
+		ID, e := ulid.Parse(v)
+		if e != nil {
+			continue
+		}
+		m[v] = ID
+	}
+
+	for _, id := range m {
+		users = append(users, User{ID: id})
+	}
+
 	log.Err(err).Int("users", len(users)).Msg("find all users")
 	return
 }
@@ -45,6 +61,7 @@ func FindAllUsers(db s3.Client) (users Users, err error) {
 func (u User) FindAllJobs(db s3.Client) (jobs Jobs, err error) {
 	var after string
 	prefix := Job{UserID: u.ID}.Path()
+	var paths []string
 	for {
 		keys, e := db.Keys(prefix, after, 1000) // todo - define job limit
 		if e != nil {
@@ -53,12 +70,7 @@ func (u User) FindAllJobs(db s3.Client) (jobs Jobs, err error) {
 		}
 		fmt.Println(keys)
 		for _, key := range keys {
-			key = strings.TrimSuffix(key, "/_.json")
-			key = key[strings.LastIndex(key, "/")+1:]
-			jobs = append(jobs, Job{
-				ID:     ulid.MustParse(key),
-				UserID: u.ID,
-			})
+			paths = append(paths, key)
 		}
 		if len(keys) == 1000 {
 			after = keys[999]
@@ -66,6 +78,21 @@ func (u User) FindAllJobs(db s3.Client) (jobs Jobs, err error) {
 		}
 		break
 	}
+
+	m := map[string]ulid.ULID{}
+	for _, path := range paths {
+		v := strings.Split(path, "/")[3]
+		id, e := ulid.Parse(v)
+		if e != nil {
+			continue
+		}
+		m[v] = id
+	}
+
+	for _, id := range m {
+		jobs = append(jobs, Job{ID: id})
+	}
+
 	log.Err(err).Int("jobs", len(jobs)).Msg("find all jobs")
 	return
 }
