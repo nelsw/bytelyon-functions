@@ -3,9 +3,12 @@ package sitemap
 import (
 	"bytelyon-functions/internal/app"
 	"bytelyon-functions/internal/client/s3"
+	"bytelyon-functions/internal/handler/jwt"
 	"bytelyon-functions/internal/model"
 	"context"
 	"encoding/base64"
+	"encoding/json"
+	"github.com/aws/aws-lambda-go/events"
 	"maps"
 	"net/http"
 	"slices"
@@ -162,11 +165,33 @@ func (r *Request) Fetch(URL string) (urls, links []string, err error) {
 	return
 }
 
-func Handler(ctx context.Context, req Request) {
-	Handle(s3.New(ctx), req.UserID, req.URL)
+func Handler(ctx context.Context, req events.LambdaFunctionURLRequest) (events.LambdaFunctionURLResponse, error) {
+
+	if app.LogURLRequest(req); app.IsOptions(req) {
+		return app.OK()
+	}
+
+	var userID ulid.ULID
+	if user, err := jwt.Validate(ctx, req.Headers["authorization"]); err != nil {
+		return app.Unauthorized(err)
+	} else {
+		userID = user.ID
+	}
+
+	if app.IsPut(req) || app.IsPost(req) {
+
+		var r Request
+		if err := json.Unmarshal([]byte(req.Body), &r); err != nil {
+			return app.BadRequest(err)
+		}
+
+		return app.Response(Handle(s3.New(ctx), userID, r.URL))
+	}
+
+	return app.NotImplemented(req)
 }
 
-func Handle(db s3.Client, userID ulid.ULID, url string) {
+func Handle(db s3.Client, userID ulid.ULID, url string) ([]byte, error) {
 
 	req := Request{
 		UserID: userID,
@@ -221,8 +246,11 @@ func Handle(db s3.Client, userID ulid.ULID, url string) {
 	// define a big ugly key
 	key := model.UserKey(req.UserID) + "/sitemap/" + base64.URLEncoding.EncodeToString([]byte(req.URL))
 
+	// marshall it
+	b := app.MustMarshal(req)
+
 	// save it
-	err := db.Put(key, app.MustMarshal(req))
+	err := db.Put(key, b)
 
 	// log the results
 	log.Logger.
@@ -232,4 +260,6 @@ func Handle(db s3.Client, userID ulid.ULID, url string) {
 		Int("visited", len(req.Visited)).
 		Int("tracked", len(req.Tracked)).
 		Msg("Fin")
+
+	return b, err
 }

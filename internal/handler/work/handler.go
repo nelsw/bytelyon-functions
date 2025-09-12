@@ -42,7 +42,7 @@ func Handler(ctx context.Context) {
 func Now(db s3.Client, job model.Job) {
 
 	if job.Type == model.SitemapJobType {
-		sitemap.Handle(db, job.UserID, job.URLs[0])
+		_, _ = sitemap.Handle(db, job.UserID, job.URLs[0])
 		job.SaveWorkResult(db, nil)
 		return
 	}
