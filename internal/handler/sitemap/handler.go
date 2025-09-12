@@ -137,6 +137,9 @@ func (r *Request) Fetch(URL string) (urls, links []string, err error) {
 				// trim it or leave this house right Jeffrey.
 				href := strings.TrimSpace(a.Val)
 
+				// trim potential trailing slashes
+				href = strings.TrimSuffix(href, "/")
+
 				// validate the anchor value and determine where it should be stored
 				if string(href[0]) == "/" {
 					// check if the anchor is only a path; prefix root URL if so
@@ -190,7 +193,7 @@ func Handle(db s3.Client, userID ulid.ULID, url string) {
 		req.Domain = req.Domain[:idx]
 	}
 
-	// use a loop remove subdomains ... i think maybe overkill
+	// use a loop remove subdomains ... I think maybe overkill
 	for strings.Count(req.Domain, ".") > 1 {
 		req.Domain = req.Domain[strings.Index(req.Domain, ".")+1:]
 	}
