@@ -1,19 +1,21 @@
 package sitemap
 
 import (
-	"bytelyon-functions/internal/app"
-	"bytelyon-functions/internal/model"
+	"bytelyon-functions/internal/handler/jwt"
 	"bytelyon-functions/test"
 	"context"
+	"github.com/stretchr/testify/assert"
 	"testing"
 )
 
 func Test_Handler(t *testing.T) {
-	test.Init(t)
-	u := model.User{ID: app.NewUlid()}
-	Handler(context.Background(), Request{
-		UserID: u.ID,
-		Depth:  5,
-		URL:    "https://www.Li-Fire.com",
-	})
+
+	req := test.
+		NewRequest(t).
+		Bearer(jwt.CreateString(test.CTX, test.FakeUser())).
+		Post(Request{URL: "https://ubicquia.com"})
+
+	res, _ := Handler(context.Background(), req)
+
+	assert.Equal(t, res.StatusCode, 200)
 }

@@ -139,6 +139,10 @@ func (r *Request) Fetch(URL string) (urls, links []string, err error) {
 				// trim potential trailing slashes
 				href = strings.TrimSuffix(href, "/")
 
+				if len(href) == 0 {
+					continue
+				}
+
 				// validate the anchor value and determine where it should be stored
 				if string(href[0]) == "/" {
 					// check if the anchor is only a path; prefix root URL if so
