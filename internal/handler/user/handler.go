@@ -6,6 +6,7 @@ import (
 	"bytelyon-functions/internal/handler/jwt"
 	"bytelyon-functions/internal/model"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -34,9 +35,8 @@ func Handler(ctx context.Context, req events.LambdaFunctionURLRequest) (events.L
 	db := s3.New(ctx)
 
 	if app.IsDelete(req) {
-		id := req.QueryStringParameters["id"]
 		delimiter := req.QueryStringParameters["delimiter"]
-		return app.Err(DeleteOne(db, user, id, delimiter))
+		return app.Err(DeleteOne(db, user, req.Body, delimiter))
 	}
 
 	if app.IsGet(req) {
@@ -147,15 +147,23 @@ func FindAll(db s3.Client, userID ulid.ULID, after, delim string, size int) (pag
 	return page, nil
 }
 
-func DeleteOne(db s3.Client, user model.User, id, delimiter string) (err error) {
+func DeleteOne(db s3.Client, user model.User, body, delimiter string) (err error) {
 
 	log.Trace().
 		Any("userID", user.ID).
 		Str("delimiter", delimiter).
-		Str("id", id).
+		Str("body", body).
 		Msg("DeleteOne")
 
 	if delimiter == "sitemap" {
+		var req struct {
+			URL string `json:"url"`
+		}
+
+		if err = json.Unmarshal([]byte(body), &req); err != nil {
+			return
+		}
+		id := base64.RawURLEncoding.EncodeToString([]byte(req.URL))
 		err = db.Delete(user.Key() + "/sitemap/" + id + "/_.json")
 	} else {
 		err = fmt.Errorf("delimiter not (yet) supported [%s]", delimiter)
@@ -164,7 +172,7 @@ func DeleteOne(db s3.Client, user model.User, id, delimiter string) (err error) 
 	log.Err(err).
 		Any("userID", user.ID).
 		Str("delimiter", delimiter).
-		Str("id", id).
+		Str("body", body).
 		Msg("DeleteOne")
 
 	return
