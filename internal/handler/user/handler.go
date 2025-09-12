@@ -8,6 +8,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/oklog/ulid/v2"
 	"github.com/rs/zerolog/log"
@@ -30,9 +31,15 @@ func Handler(ctx context.Context, req events.LambdaFunctionURLRequest) (events.L
 		return app.Unauthorized(err)
 	}
 
-	if app.IsGet(req) {
+	db := s3.New(ctx)
 
-		db := s3.New(ctx)
+	if app.IsDelete(req) {
+		id := req.QueryStringParameters["id"]
+		delimiter := req.QueryStringParameters["delimiter"]
+		return app.Err(DeleteOne(db, user, id, delimiter))
+	}
+
+	if app.IsGet(req) {
 
 		after := req.QueryStringParameters["after"]
 		delim := req.QueryStringParameters["delimiter"]
@@ -138,4 +145,27 @@ func FindAll(db s3.Client, userID ulid.ULID, after, delim string, size int) (pag
 		Msg("FindAll")
 
 	return page, nil
+}
+
+func DeleteOne(db s3.Client, user model.User, id, delimiter string) (err error) {
+
+	log.Trace().
+		Any("userID", user.ID).
+		Str("delimiter", delimiter).
+		Str("id", id).
+		Msg("DeleteOne")
+
+	if delimiter == "sitemap" {
+		err = db.Delete(user.Key() + "/sitemap/" + id + "/_.json")
+	} else {
+		err = fmt.Errorf("delimiter not (yet) supported [%s]", delimiter)
+	}
+
+	log.Err(err).
+		Any("userID", user.ID).
+		Str("delimiter", delimiter).
+		Str("id", id).
+		Msg("DeleteOne")
+
+	return
 }
