@@ -96,10 +96,6 @@ type Request struct {
 	Tracked []string  `json:"tracked"`
 }
 
-func (r *Request) Key() string {
-	return model.UserKey(r.UserID) + "/sitemap/" + base64.URLEncoding.EncodeToString([]byte(r.URL)) + "/_.json"
-}
-
 // Fetch returns the given URL and collects internal urls and external links.
 // Note that we do not crawl external links, but we keep track of them. For reasons.
 func (r *Request) Fetch(URL string) (urls, links []string, err error) {
@@ -222,8 +218,11 @@ func Handle(db s3.Client, userID ulid.ULID, url string) {
 	req.Visited = slices.Sorted(maps.Keys(crawler.visited))
 	req.Tracked = slices.Sorted(maps.Keys(crawler.tracked))
 
+	// define a big ugly key
+	key := model.UserKey(req.UserID) + "/sitemap/" + base64.URLEncoding.EncodeToString([]byte(req.URL))
+
 	// save it
-	err := db.Put(req.Key(), app.MustMarshal(req))
+	err := db.Put(key, app.MustMarshal(req))
 
 	// log the results
 	log.Logger.
