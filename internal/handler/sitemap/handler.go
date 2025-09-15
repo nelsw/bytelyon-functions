@@ -8,13 +8,14 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
-	"github.com/aws/aws-lambda-go/events"
 	"maps"
 	"net/http"
 	"slices"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/aws/aws-lambda-go/events"
 
 	"github.com/oklog/ulid/v2"
 	"github.com/rs/zerolog/log"
@@ -44,14 +45,14 @@ func (c *Crawler) Crawl(URL string, depth int) {
 		return
 	}
 
-	// lock the crawler state before accessing the map to avoid a race collission.
+	// lock the crawler state before accessing the map to avoid a race collision.
 	c.mu.Lock()
 	// if the url exists in the visited map, we are done with it.
 	if _, ok := c.visited[URL]; ok {
-		c.mu.Unlock() // don't forget to unlock the state before bailing
+		c.mu.Unlock() // remember to unlock the state before bailing
 		return
 	}
-	// otherwise we'll be visiting this URL so practively update it's status in the map
+	// otherwise we'll be visiting this URL so practively update its status in the map
 	c.visited[URL] = true
 
 	// unlock the crawler state now that we're done with reading and writing the map
@@ -67,7 +68,7 @@ func (c *Crawler) Crawl(URL string, depth int) {
 		Str("URL", URL).
 		Msg("Fetch")
 
-	// fail fast on the error; it's logged and Joe is already on it OR HE'S FIRED.
+	// fail fast on the error; it's logged, and Joe is already on it, OR HE'S FIRED.
 	if err != nil {
 		return
 	}
@@ -77,7 +78,7 @@ func (c *Crawler) Crawl(URL string, depth int) {
 		c.tracked[l] = true
 	}
 
-	// Attempt to crawl each of the domain specific urls we returned from fetch()
+	// Attempt to crawl each of the domain-specific urls we returned from fetch()
 	for _, u := range URLs {
 		c.wg.Add(1)
 		go c.Crawl(u, depth-1)
@@ -119,7 +120,7 @@ func (r *Request) Fetch(URL string) (urls, links []string, err error) {
 	// declare the traversal function type here to enable recursion inside the ƒn
 	var fn func(*html.Node)
 
-	// define the traversal function, and use comments to love on your future status
+	// define the traversal function and use comments to love on your future status
 	fn = func(n *html.Node) {
 
 		// if the given node is an anchor tag
@@ -133,7 +134,7 @@ func (r *Request) Fetch(URL string) (urls, links []string, err error) {
 					continue
 				}
 
-				// trim it or leave this house right Jeffrey.
+				// trim it or leave this house right, Jeffrey.
 				href := strings.TrimSpace(a.Val)
 
 				// trim potential trailing slashes
@@ -218,7 +219,7 @@ func Handle(db s3.Client, userID ulid.ULID, url string) ([]byte, error) {
 		req.Domain = req.Domain[:idx]
 	}
 
-	// use a loop remove subdomains ... I think maybe overkill
+	// use a loop to remove subdomains ... I think maybe overkill
 	for strings.Count(req.Domain, ".") > 1 {
 		req.Domain = req.Domain[strings.Index(req.Domain, ".")+1:]
 	}
@@ -239,7 +240,7 @@ func Handle(db s3.Client, userID ulid.ULID, url string) ([]byte, error) {
 	// initiate crawling using the fetcher values
 	go crawler.Crawl(req.URL, req.Depth)
 
-	// wait for the initial (and entire) crawl to completed
+	// wait for the initial (and entire) crawl to complete
 	crawler.wg.Wait()
 
 	// set and end time before saving to s3
