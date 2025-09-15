@@ -10,13 +10,14 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/aws/aws-lambda-go/events"
-	"github.com/oklog/ulid/v2"
-	"github.com/rs/zerolog/log"
 	"maps"
 	"slices"
 	"strconv"
 	"strings"
+
+	"github.com/aws/aws-lambda-go/events"
+	"github.com/oklog/ulid/v2"
+	"github.com/rs/zerolog/log"
 )
 
 func Handler(ctx context.Context, req events.LambdaFunctionURLRequest) (events.LambdaFunctionURLResponse, error) {
