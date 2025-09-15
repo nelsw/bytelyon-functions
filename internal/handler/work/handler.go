@@ -7,12 +7,13 @@ import (
 	"context"
 	"encoding/xml"
 	"errors"
-	"github.com/rs/zerolog/log"
 	"io"
 	"net/http"
 	"net/url"
 	"regexp"
 	"strings"
+
+	"github.com/rs/zerolog/log"
 )
 
 var bingRegexp = regexp.MustCompile("</?News(:\\w+)>")
