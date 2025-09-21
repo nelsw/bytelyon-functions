@@ -1,0 +1,51 @@
+package test
+
+import (
+	"bytelyon-functions/internal/app"
+	"bytelyon-functions/internal/model"
+	"context"
+	"os"
+	"strings"
+	"testing"
+
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
+)
+
+var CTX = context.Background()
+
+func Init(t *testing.T) {
+	t.Setenv("APP_MODE", "test")
+	t.Setenv("JWT_SECRET", "a-string-secret-at-least-256-bits-long")
+	initLogger()
+}
+
+func initLogger() {
+	log.Logger = log.Output(zerolog.ConsoleWriter{
+		Out: os.Stderr,
+		FormatLevel: func(a any) string {
+			var color, level string
+			switch level = strings.ToUpper(a.(string)[:3]); level {
+			case "TRA":
+				color = "\033[36m" // Cyan
+			case "DEB":
+				color = "\033[35m" // Magenta
+			case "INF":
+				color = "\033[32m" // Green
+			case "WAR":
+				color = "\033[33m" // Yellow
+			case "ERR":
+				color = "\033[31m" // Red
+			case "FAT", "PAN":
+				color = "\033[41m\033[37m" // Red background, white text
+			default:
+				color = "\033[0m" // Reset
+			}
+			return color + level + "\033[0m" // Reset color after level
+		},
+	})
+}
+
+func FakeUser() model.User {
+	return model.User{ID: app.NewUlid()}
+}

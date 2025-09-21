@@ -1,0 +1,73 @@
+package job
+
+import (
+	"bytelyon-functions/internal/app"
+	"bytelyon-functions/internal/client/s3"
+	"bytelyon-functions/internal/handler/jwt"
+	"bytelyon-functions/internal/model"
+	"bytelyon-functions/test"
+	"testing"
+
+	"github.com/brianvoe/gofakeit/v7"
+	"github.com/stretchr/testify/assert"
+)
+
+func fakeUser() model.User {
+	return model.User{ID: app.NewUlid()}
+}
+
+func fakeJob() model.Job {
+	return model.Job{
+		Type:      model.NewsJobType,
+		Frequency: model.Frequency{Unit: "h", Value: 12},
+		Name:      gofakeit.Name(),
+		Desc:      gofakeit.Sentence(10),
+		Keywords:  []string{"GM", "GMC", "EV", "Hummer"},
+	}
+}
+
+func Test_Handler_Post(t *testing.T) {
+
+	req := test.
+		NewRequest(t).
+		Bearer(jwt.CreateString(test.CTX, fakeUser())).
+		Post(fakeJob())
+
+	res, _ := Handler(test.CTX, req)
+
+	assert.Equal(t, res.StatusCode, 200)
+}
+
+func Test_Handler_Get(t *testing.T) {
+	test.Init(t)
+	user := fakeUser()
+	_, _ = Save(s3.New(test.CTX), user.ID, app.MustMarshal(fakeJob()), false)
+
+	req := test.
+		NewRequest(t).
+		Bearer(jwt.CreateString(test.CTX, user)).
+		Query("size", 2).
+		Get()
+
+	res, _ := Handler(test.CTX, req)
+
+	assert.Equal(t, res.StatusCode, 200)
+}
+
+func Test_Handler_Delete(t *testing.T) {
+	test.Init(t)
+	user := fakeUser()
+	job := fakeJob()
+	job.ID = app.NewUlid()
+	_, _ = Save(s3.New(test.CTX), user.ID, app.MustMarshal(job), false)
+
+	req := test.
+		NewRequest(t).
+		Bearer(jwt.CreateString(test.CTX, user)).
+		Query("id", job.ID).
+		Delete()
+
+	res, _ := Handler(test.CTX, req)
+
+	assert.Equal(t, res.StatusCode, 200)
+}
