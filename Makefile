@@ -44,6 +44,7 @@ list:
 	| jq '.Functions.[] | {name: .FunctionName, updated: .LastModified, environment: .Environment.Variables}'
 
 logs:
+	@printf "➜  %s  %s [\033[35m%s\033[0m]" "👀" "logs" ${name}
 	open "https://us-east-1.console.aws.amazon.com/cloudwatch/home#logStream:group=/aws/lambda/bytelyon-${name}"
 
 publish:
