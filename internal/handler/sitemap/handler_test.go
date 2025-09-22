@@ -1,21 +1,26 @@
 package sitemap
 
 import (
+	"bytelyon-functions/internal/app"
 	"bytelyon-functions/internal/handler/jwt"
+	"bytelyon-functions/internal/model"
 	"bytelyon-functions/test"
-	"context"
-	"github.com/stretchr/testify/assert"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func Test_Handler(t *testing.T) {
 
 	req := test.
 		NewRequest(t).
-		Bearer(jwt.CreateString(test.CTX, test.FakeUser())).
-		Post(Request{URL: "https://ubicquia.com"})
+		Bearer(jwt.CreateString(test.CTX, test.DemoUser())).
+		Post(model.Sitemap{URL: "https://ubicquia.com", Depth: 25})
 
-	res, _ := Handler(context.Background(), req)
+	res, _ := Handler(test.CTX, req)
 
-	assert.Equal(t, res.StatusCode, 200)
+	var sitemap model.Sitemap
+	app.MustUnmarshal([]byte(res.Body), &sitemap)
+	assert.Greater(t, len(sitemap.Tracked), 10)
+	assert.Greater(t, len(sitemap.Visited), 10)
 }

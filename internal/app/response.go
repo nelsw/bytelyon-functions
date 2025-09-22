@@ -11,7 +11,9 @@ import (
 )
 
 func logMap(s string, m map[string]interface{}) {
-	log.Info().Any(s, m).Send()
+	if IsProd() {
+		log.Info().Any(s, m).Send()
+	}
 }
 
 func okStr(s string) (events.LambdaFunctionURLResponse, error) {

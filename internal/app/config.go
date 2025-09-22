@@ -14,3 +14,7 @@ func Mode() string {
 	}
 	return mode
 }
+
+func IsProd() bool {
+	return Mode() == "prod"
+}

@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/oklog/ulid/v2"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 )
@@ -48,4 +49,8 @@ func initLogger() {
 
 func FakeUser() model.User {
 	return model.User{ID: app.NewUlid()}
+}
+
+func DemoUser() model.User {
+	return model.User{ID: ulid.MustParse("01K48PC0BK13BWV2CGWFP8QQH0")}
 }
