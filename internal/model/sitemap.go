@@ -133,27 +133,6 @@ func (s *Sitemap) Save(db s3.Client) ([]byte, error) {
 
 func (s *Sitemap) Build() {
 
-	s.Init()
-
-	// new up a Crawler using a reference to the Sitemap, aka Fetcher
-	crawler := NewCrawler(s)
-
-	// increment the crawler wait group by 1 as prepare to execute 1 go routine
-	crawler.Add()
-
-	// initiate crawling using the fetcher values
-	go crawler.Crawl(s.URL, s.Depth)
-
-	// wait for the initial (and entire) crawl to complete
-	crawler.Wait()
-
-	// update crawl details
-	s.End = time.Now().UTC()
-	s.Visited = crawler.Visited()
-	s.Tracked = crawler.Tracked()
-}
-
-func (s *Sitemap) Init() {
 	// start with the holiest string homogenization ƒ
 	s.URL = strings.ToLower(strings.TrimSpace(s.URL))
 
@@ -175,4 +154,27 @@ func (s *Sitemap) Init() {
 	if s.Depth <= 0 {
 		s.Depth = 15
 	}
+
+	s.Start = time.Now().UTC()
+
+	// new up a Crawler using a reference to the Sitemap, aka Fetcher
+	crawler := NewCrawler(s)
+
+	// increment the crawler wait group by 1 as prepare to execute 1 go routine
+	crawler.Add()
+
+	// initiate crawling using the fetcher values
+	go crawler.Crawl(s.URL, s.Depth)
+
+	// wait for the initial (and entire) crawl to complete
+	crawler.Wait()
+
+	// update crawl details
+	s.End = time.Now().UTC()
+	s.Visited = crawler.Visited()
+	s.Tracked = crawler.Tracked()
+}
+
+func (s *Sitemap) Init() {
+
 }
