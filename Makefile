@@ -88,3 +88,12 @@ update: build
 url:
 	@printf "➜  %s  %s [\033[35m%s\033[0m]\n" "🛜" "url" ${name}
 	@aws lambda get-function-url-config --function-name bytelyon-${name} | jq '.FunctionUrl'
+
+invoke:
+	@printf "➜  %s  %s [\033[35m%s\033[0m]\n" "🐻" "invoke" ${name}
+	@aws lambda invoke \
+		--function-name bytelyon-browser \
+		--cli-binary-format raw-in-base64-out \
+		--payload '{ "url": "https://google.com/search?q=corsair+marine+970" }' \
+		response.json > /dev/null
+	@printf "  ✅\n"
