@@ -75,7 +75,7 @@ func FindAll(db s3.Client, userID ulid.ULID, after, delim string, size int) (pag
 	for {
 
 		var keys []string
-		if keys, err = db.Keys(model.UserPath, lastKey, "", 1000); err != nil {
+		if keys, err = db.Keys(model.UserPath, lastKey, 1000); err != nil {
 			log.Err(err).Str("delimiter", delim).Msg("FindAll")
 			return
 		}

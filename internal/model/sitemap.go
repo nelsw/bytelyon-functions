@@ -1,9 +1,9 @@
 package model
 
 import (
-	"bytelyon-functions/internal/app"
 	"bytelyon-functions/internal/client/s3"
 	"encoding/base64"
+	"encoding/json"
 	"net/http"
 	"strings"
 	"time"
@@ -20,7 +20,7 @@ type Fetcher interface {
 }
 
 type Sitemap struct {
-	UserID  ulid.ULID `json:"user_id"`
+	ID      string    `json:"id"`
 	Start   time.Time `json:"start"`
 	End     time.Time `json:"end"`
 	Depth   int       `json:"depth"`
@@ -28,6 +28,74 @@ type Sitemap struct {
 	Domain  string    `json:"domain"`
 	Visited []string  `json:"visited"`
 	Tracked []string  `json:"tracked"`
+}
+
+func NewSitemap(url string) *Sitemap {
+	return &Sitemap{URL: url}
+}
+
+func (s *Sitemap) Create(db s3.Client, userID ulid.ULID) (b []byte, err error) {
+
+	// start with the holiest string homogenization ƒ
+	s.URL = strings.ToLower(strings.TrimSpace(s.URL))
+
+	// define a new filename friendly ID
+	s.ID = base64.URLEncoding.EncodeToString([]byte(s.URL))
+
+	// remove the schemes
+	s.Domain = strings.TrimPrefix(s.URL, "http://")
+	s.Domain = strings.TrimPrefix(s.Domain, "https://")
+	// remove the wild-wild web
+	s.Domain = strings.TrimPrefix(s.Domain, "www.")
+	// remove the path and query params after the domain extension
+	if idx := strings.Index(s.Domain, "/"); idx > 0 {
+		s.Domain = s.Domain[:idx]
+	}
+	// use a loop to remove subdomains ... I think maybe overkill
+	for strings.Count(s.Domain, ".") > 1 {
+		s.Domain = s.Domain[strings.Index(s.Domain, ".")+1:]
+	}
+
+	// use a default depth if invalid value provided
+	if s.Depth <= 0 {
+		s.Depth = 15
+	}
+
+	s.Start = time.Now().UTC()
+
+	// new up a Crawler using a reference to the Sitemap, aka Fetcher
+	crawler := NewCrawler(s)
+
+	// increment the crawler wait group by 1 as prepare to execute 1 go routine
+	crawler.Add()
+
+	// initiate crawling using the fetcher values
+	go crawler.Crawl(s.URL, s.Depth)
+
+	// wait for the initial (and entire) crawl to complete
+	crawler.Wait()
+
+	// update crawl details
+	s.End = time.Now().UTC()
+	s.Visited = crawler.Visited()
+	s.Tracked = crawler.Tracked()
+
+	// marshall it
+	if b, err = json.Marshal(s); err == nil {
+		err = db.Put(UserKey(userID)+"/sitemap/"+s.ID, b)
+	}
+
+	// log the results
+	log.Logger.
+		Err(err).
+		Str("ID", s.ID).
+		Str("URL", s.URL).
+		Int("depth", s.Depth).
+		Int("visited", len(s.Visited)).
+		Int("tracked", len(s.Tracked)).
+		Msg("Sitemap Created")
+
+	return b, err
 }
 
 func (s *Sitemap) Fetch(URL string) (urls, links []string, err error) {
@@ -118,63 +186,4 @@ func (s *Sitemap) get(URL string, attempt int) (*http.Response, error) {
 		log.Err(err).Str("URL", URL).Msg("failed to http.Get")
 		return nil, err
 	}
-}
-
-func (s *Sitemap) Save(db s3.Client) ([]byte, error) {
-	// define a big ugly key
-	key := UserKey(s.UserID) + "/sitemap/" + base64.URLEncoding.EncodeToString([]byte(s.URL))
-
-	// marshall it
-	b := app.MustMarshal(*s)
-
-	// save it
-	return b, db.Put(key, b)
-}
-
-func (s *Sitemap) Build() {
-
-	// start with the holiest string homogenization ƒ
-	s.URL = strings.ToLower(strings.TrimSpace(s.URL))
-
-	// remove the schemes
-	s.Domain = strings.TrimPrefix(s.URL, "http://")
-	s.Domain = strings.TrimPrefix(s.Domain, "https://")
-	// remove the wild-wild web
-	s.Domain = strings.TrimPrefix(s.Domain, "www.")
-	// remove the path and query params after the domain extension
-	if idx := strings.Index(s.Domain, "/"); idx > 0 {
-		s.Domain = s.Domain[:idx]
-	}
-	// use a loop to remove subdomains ... I think maybe overkill
-	for strings.Count(s.Domain, ".") > 1 {
-		s.Domain = s.Domain[strings.Index(s.Domain, ".")+1:]
-	}
-
-	// use a default depth if invalid value provided
-	if s.Depth <= 0 {
-		s.Depth = 15
-	}
-
-	s.Start = time.Now().UTC()
-
-	// new up a Crawler using a reference to the Sitemap, aka Fetcher
-	crawler := NewCrawler(s)
-
-	// increment the crawler wait group by 1 as prepare to execute 1 go routine
-	crawler.Add()
-
-	// initiate crawling using the fetcher values
-	go crawler.Crawl(s.URL, s.Depth)
-
-	// wait for the initial (and entire) crawl to complete
-	crawler.Wait()
-
-	// update crawl details
-	s.End = time.Now().UTC()
-	s.Visited = crawler.Visited()
-	s.Tracked = crawler.Tracked()
-}
-
-func (s *Sitemap) Init() {
-
 }

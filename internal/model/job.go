@@ -12,8 +12,6 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-const JobPath = "job"
-
 type JobType int
 
 const (
@@ -27,10 +25,52 @@ var JobTypes = map[JobType]string{
 }
 
 type Jobs []Job
+
+func FindJobs(db s3.Client, userID ulid.ULID) (page Page, err error) {
+
+	var keys []string
+	if keys, err = db.Keys(UserKey(userID)+"/job", "", 1000); err != nil {
+		return
+	}
+	page.Total = len(keys)
+
+	var job Job
+	var items Items
+	for _, key := range keys {
+		if !strings.Contains(key, "/item/") {
+			if len(items) > 0 {
+				page = page.Add(map[string]any{
+					"job":   job,
+					"items": items,
+				})
+				items = nil
+				job = Job{}
+			}
+
+			_ = db.Find(key, &job)
+			continue
+		}
+
+		var item Item
+		_ = db.Find(key, &item)
+		items = append(items, item)
+	}
+	if len(items) > 0 {
+		page = page.Add(map[string]any{
+			"job":   job,
+			"items": items,
+		})
+	}
+	log.Err(err).
+		Int("total", page.Total).
+		Int("size", page.Size).
+		Msg("FindJobs")
+	return page, err
+}
+
 type Job struct {
 	ID        ulid.ULID `json:"id"`
-	UserID    ulid.ULID `json:"user_id"`
-	WorkedAt  time.Time `json:"worked_at"`
+	WorkedAt  time.Time `json:"worked_at,omitempty"`
 	WorkedOk  bool      `json:"worked_ok"`
 	Type      JobType   `json:"type"`
 	Frequency Frequency `json:"frequency"`
@@ -38,14 +78,6 @@ type Job struct {
 	Desc      string    `json:"description"`
 	URLs      []string  `json:"urls"`
 	Keywords  []string  `json:"keywords"`
-}
-
-func (j Job) Path() string {
-	return fmt.Sprintf("%s/%s", UserKey(j.UserID), JobPath)
-}
-
-func (j Job) Key() string {
-	return fmt.Sprintf("%s/%s", j.Path(), j.ID)
 }
 
 func (j Job) Validate() (err error) {
@@ -69,37 +101,61 @@ func (j Job) ReadyForWork() bool {
 	return j.WorkedAt.Add(j.Frequency.Duration()).Before(time.Now().UTC())
 }
 
-func (j Job) SaveWorkResult(db s3.Client, err error) {
+func (j Job) SaveWorkResult(db s3.Client, err error, userID ulid.ULID) {
+
 	j.WorkedAt = time.Now().UTC()
 	j.WorkedOk = err == nil
-	if e := db.Put(j.Key(), app.MustMarshal(j)); e != nil {
+
+	if e := db.Put(JobKey(userID, j.ID), app.MustMarshal(j)); e != nil {
 		err = errors.Join(err, e)
 	}
+
 	log.Err(err).Any("job", j).Msg("job worked")
+
 	return
 }
 
-func (j Job) Items(db s3.Client) (items Items, err error) {
-	var keys []string
-
-	if keys, err = db.Keys(j.Key()+"/"+ItemPath, "", "", 1000); err != nil {
+func (j Job) DoWork(db s3.Client, userID ulid.ULID) {
+	if j.Type == SitemapJobType {
+		_, err := NewSitemap(j.URLs[0]).Create(db, userID)
+		j.SaveWorkResult(db, err, userID)
 		return
 	}
-	for _, key := range keys {
-		if !strings.Contains(key, ItemPath) {
-			continue
-		}
-		fmt.Println(key)
-		var item Item
-		if e := db.Find(key, &item); e != nil {
-			err = errors.Join(e, e)
-		} else {
-			items = append(items, item)
+
+	if j.Type == NewsJobType {
+		err := j.newsJob(db, userID)
+		j.SaveWorkResult(db, err, userID)
+
+		return
+	}
+
+	log.Warn().Msgf("unknown job type: %d", j.Type)
+}
+
+func (j Job) newsJob(db s3.Client, userID ulid.ULID) (err error) {
+	var items Items
+	for _, u := range j.URLs {
+
+		if ii, e := MakeNewsItems(u); e != nil {
+			err = errors.Join(err, e)
+		} else if ii != nil {
+			items = append(items, ii...)
 		}
 	}
+
+	for _, item := range items {
+		if e := item.Create(db, JobKey(userID, j.ID)); e != nil {
+			err = errors.Join(err, e)
+		}
+	}
+
 	return
+}
+
+func JobPath(userID ulid.ULID) string {
+	return fmt.Sprintf("%s/%s", UserKey(userID), "job")
 }
 
 func JobKey(userID ulid.ULID, jobID any) string {
-	return fmt.Sprintf("%s/%s/%s", UserKey(userID), JobPath, jobID)
+	return fmt.Sprintf("%s/%s", JobPath(userID), jobID)
 }

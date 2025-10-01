@@ -11,7 +11,6 @@ import (
 	"github.com/aws/aws-lambda-go/events"
 
 	"github.com/oklog/ulid/v2"
-	"github.com/rs/zerolog/log"
 )
 
 func Handler(ctx context.Context, req events.LambdaFunctionURLRequest) (events.LambdaFunctionURLResponse, error) {
@@ -33,27 +32,9 @@ func Handler(ctx context.Context, req events.LambdaFunctionURLRequest) (events.L
 		if err := json.Unmarshal([]byte(req.Body), &s); err != nil {
 			return app.BadRequest(err)
 		}
-		s.UserID = userID
-		return app.Response(Handle(s3.New(ctx), &s))
+
+		return app.Response(s.Create(s3.New(ctx), userID))
 	}
 
 	return app.NotImplemented(req)
-}
-
-func Handle(db s3.Client, s *model.Sitemap) ([]byte, error) {
-
-	s.Build()
-
-	b, err := s.Save(db)
-
-	// log the results
-	log.Logger.
-		Err(err).
-		Str("URL", s.URL).
-		Int("depth", s.Depth).
-		Int("visited", len(s.Visited)).
-		Int("tracked", len(s.Tracked)).
-		Msg("Fin")
-
-	return b, err
 }

@@ -6,6 +6,14 @@ type Page struct {
 	Total int   `json:"total"`
 }
 
+func MakePage(items []any, size int, total int) Page {
+	if len(items) < size {
+		size = len(items)
+		total = len(items)
+	}
+	return Page{Items: items[:size-1], Size: size, Total: total}
+}
+
 func (p Page) IsEmpty() bool {
 	return p.Total == 0
 }

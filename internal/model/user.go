@@ -31,7 +31,7 @@ func FindAllUsers(db s3.Client) (Users, error) {
 	for {
 
 		var keys []string
-		if keys, err = db.Keys(UserPath, after, "", 1000); err != nil {
+		if keys, err = db.Keys(UserPath, after, 1000); err != nil {
 			log.Err(err).Msg("FindAllUsers")
 			return nil, err
 		}
@@ -68,45 +68,6 @@ func FindAllUsers(db s3.Client) (Users, error) {
 	log.Err(err).Int("count", len(users)).Msg("FindAllUsers")
 
 	return users, err
-}
-
-func (u User) FindAllJobs(db s3.Client) (jobs Jobs, err error) {
-	var after string
-	prefix := Job{UserID: u.ID}.Path()
-	var paths []string
-	for {
-		keys, e := db.Keys(prefix, after, "", 1000) // todo - define job limit
-		if e != nil {
-			err = errors.Join(err, e)
-			continue
-		}
-
-		for _, key := range keys {
-			paths = append(paths, key)
-		}
-		if len(keys) == 1000 {
-			after = keys[999]
-			continue
-		}
-		break
-	}
-
-	m := map[string]ulid.ULID{}
-	for _, path := range paths {
-		v := strings.Split(path, "/")[3]
-		id, e := ulid.Parse(v)
-		if e != nil {
-			continue
-		}
-		m[v] = id
-	}
-
-	for _, id := range m {
-		jobs = append(jobs, Job{ID: id})
-	}
-
-	log.Err(err).Int("jobs", len(jobs)).Msg("find all jobs")
-	return
 }
 
 func UserKey(ID ulid.ULID) string {

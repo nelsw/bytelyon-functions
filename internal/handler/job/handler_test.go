@@ -12,25 +12,21 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func fakeUser() model.User {
-	return model.User{ID: app.NewUlid()}
-}
-
 func fakeJob() model.Job {
 	return model.Job{
 		Type:      model.NewsJobType,
 		Frequency: model.Frequency{Unit: "h", Value: 12},
 		Name:      gofakeit.Name(),
 		Desc:      gofakeit.Sentence(10),
-		Keywords:  []string{"GM", "GMC", "EV", "Hummer"},
+		Keywords:  []string{"Rivian"},
 	}
 }
 
 func Test_Handler_Post(t *testing.T) {
-
+	user := test.DemoUser()
 	req := test.
 		NewRequest(t).
-		Bearer(jwt.CreateString(test.CTX, fakeUser())).
+		Bearer(jwt.CreateString(test.CTX, user)).
 		Post(fakeJob())
 
 	res, _ := Handler(test.CTX, req)
@@ -40,8 +36,7 @@ func Test_Handler_Post(t *testing.T) {
 
 func Test_Handler_Get(t *testing.T) {
 	test.Init(t)
-	user := fakeUser()
-	_, _ = Save(s3.New(test.CTX), user.ID, app.MustMarshal(fakeJob()), false)
+	user := test.DemoUser()
 
 	req := test.
 		NewRequest(t).
@@ -56,10 +51,10 @@ func Test_Handler_Get(t *testing.T) {
 
 func Test_Handler_Delete(t *testing.T) {
 	test.Init(t)
-	user := fakeUser()
+	user := test.DemoUser()
 	job := fakeJob()
 	job.ID = app.NewUlid()
-	_, _ = Save(s3.New(test.CTX), user.ID, app.MustMarshal(job), false)
+	_, _ = Save(s3.New(test.CTX), user.ID, app.MustMarshal(job))
 
 	req := test.
 		NewRequest(t).

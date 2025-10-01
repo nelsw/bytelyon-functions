@@ -21,7 +21,7 @@ create: build
 	@printf "➜  %s  %s [\033[35m%s\033[0m]" "💽" "create" ${name}
 	@aws lambda create-function \
 		--function-name bytelyon-${name} \
-		--runtime "provided.al2" \
+		--runtime "provided.al2023" \
 		--role ${ROLE} \
 		--architectures arm64 \
 		--handler "bootstrap" \
@@ -78,8 +78,6 @@ update: build
 	@aws lambda update-function-configuration \
     		--function-name bytelyon-${name} \
     		--role ${ROLE} \
-    		--timeout "30" \
-    		--memory-size "512" \
     		--environment "Variables={$(shell tr '\n' ',' < ./internal/handler/${name}/.env)}" > /dev/null
 	@aws lambda update-function-code --zip-file fileb://./main.zip --function-name bytelyon-${name} > /dev/null
 	@printf "  ✅\n"

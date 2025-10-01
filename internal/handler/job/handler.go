@@ -4,11 +4,11 @@ import (
 	"bytelyon-functions/internal/app"
 	"bytelyon-functions/internal/client/s3"
 	"bytelyon-functions/internal/handler/jwt"
-	"bytelyon-functions/internal/handler/work"
 	"bytelyon-functions/internal/model"
 	"context"
 	"encoding/json"
-	"errors"
+	"fmt"
+	"net/url"
 	"strconv"
 
 	"github.com/aws/aws-lambda-go/events"
@@ -35,7 +35,7 @@ func Handler(ctx context.Context, req events.LambdaFunctionURLRequest) (events.L
 
 	if app.IsPut(req) || app.IsPost(req) {
 		var job model.Job
-		if job, err = Save(db, user.ID, []byte(req.Body), app.IsPost(req)); err != nil {
+		if job, err = Save(db, user.ID, []byte(req.Body)); err != nil {
 			return app.BadRequest(err)
 		}
 		return app.Marshall(job)
@@ -56,24 +56,34 @@ func Handler(ctx context.Context, req events.LambdaFunctionURLRequest) (events.L
 	return app.NotImplemented(req)
 }
 
-func Save(db s3.Client, userID ulid.ULID, in []byte, run bool) (job model.Job, err error) {
+func Save(db s3.Client, userID ulid.ULID, in []byte) (job model.Job, err error) {
 
-	_ = json.Unmarshal(in, &job)
+	err = json.Unmarshal(in, &job)
+	if err != nil {
+		return
+	}
 	if err = job.Validate(); err != nil {
 		return
 	}
 
-	job.UserID = userID
-
+	var run bool
 	if job.ID.IsZero() {
 		job.ID = app.NewUlid()
+		run = true
 	}
 
 	if job.Type == model.NewsJobType {
+		var keywordQuery string
+		for i, keyword := range job.Keywords {
+			if i > 0 {
+				keywordQuery += "+"
+			}
+			keywordQuery += url.QueryEscape(keyword)
+		}
 		job.URLs = []string{
-			"https://news.google.com/rss/search?q={KEYWORD_QUERY}&hl=en-US&gl=US&ceid=US:en",
-			"https://www.bing.com/news/search?format=rss&q={KEYWORD_QUERY}",
-			"https://www.bing.com/search?format=rss&q={KEYWORD_QUERY}",
+			fmt.Sprintf("https://news.google.com/rss/search?q=%s&hl=en-US&gl=US&ceid=US:en", keywordQuery),
+			fmt.Sprintf("https://www.bing.com/news/search?format=rss&q=%s", keywordQuery),
+			fmt.Sprintf("https://www.bing.com/search?format=rss&q=%s", keywordQuery),
 		}
 	}
 
@@ -82,47 +92,14 @@ func Save(db s3.Client, userID ulid.ULID, in []byte, run bool) (job model.Job, e
 	}
 
 	if run {
-		work.Now(db, job)
+		job.DoWork(db, userID)
 	}
 
 	return
 }
 
 func FindAll(db s3.Client, user model.User, size int, after string) (page model.Page, err error) {
-
-	var jobs model.Jobs
-	if jobs, err = user.FindAllJobs(db); err != nil {
-		return
-	} else if page.Total = len(jobs); page.IsEmpty() {
-		return
-	}
-
-	afterFound := after == ""
-	for _, job := range jobs {
-
-		if page.Size >= size {
-			break
-		}
-
-		if !afterFound && job.ID.String() == after {
-			afterFound = true
-		}
-
-		if !afterFound {
-			continue
-		}
-
-		var w model.Work
-		if e := db.Find(model.JobKey(user.ID, job.ID), &w.Job); e != nil {
-			err = errors.Join(err, e)
-		} else if w.Items, e = w.Job.Items(db); e != nil {
-			err = errors.Join(err, e)
-		} else {
-			page = page.Add(w)
-		}
-	}
-
-	return page, err
+	return model.FindJobs(db, user.ID)
 }
 
 func Delete(db s3.Client, userID ulid.ULID, id string) error {
