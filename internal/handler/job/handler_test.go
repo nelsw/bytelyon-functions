@@ -47,6 +47,10 @@ func Test_Handler_Get(t *testing.T) {
 	res, _ := Handler(test.CTX, req)
 
 	assert.Equal(t, res.StatusCode, 200)
+
+	var p model.Page
+	app.MustUnmarshal([]byte(res.Body), &p)
+	assert.Equal(t, len(p.Items), 2)
 }
 
 func Test_Handler_Delete(t *testing.T) {

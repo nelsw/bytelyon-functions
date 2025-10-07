@@ -99,7 +99,7 @@ func Save(db s3.Client, userID ulid.ULID, in []byte) (job model.Job, err error) 
 }
 
 func FindAll(db s3.Client, user model.User, size int, after string) (page model.Page, err error) {
-	return model.FindJobs(db, user.ID)
+	return model.FindJobsFast(db, user.ID)
 }
 
 func Delete(db s3.Client, userID ulid.ULID, id string) error {

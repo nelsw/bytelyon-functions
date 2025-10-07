@@ -12,6 +12,8 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 )
 
+const MAX_RESULTS = 1000
+
 type Client interface {
 	Delete(string) error
 	Find(string, any) error
