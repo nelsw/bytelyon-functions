@@ -64,11 +64,11 @@ func (p *Password) Key() string {
 func (p *Password) Find(db s3.Service, u *User) error {
 
 	p.User = u
-	hash := p.Hash
 
-	if err := db.Find(p.Key(), &p); err != nil {
+	var pass Password
+	if err := db.Find(p.Key(), &pass); err != nil {
 		return err
-	} else if err = p.Compare(hash); err != nil {
+	} else if err = p.Compare(pass.Hash); err != nil {
 		return err
 	}
 
