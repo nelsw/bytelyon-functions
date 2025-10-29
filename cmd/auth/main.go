@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytelyon-functions/internal/model"
+	"net/http"
 	"os"
 	"regexp"
 	"strings"
@@ -42,6 +43,9 @@ var (
 func Handler(req events.APIGatewayV2HTTPRequest) (events.APIGatewayV2CustomAuthorizerSimpleResponse, error) {
 
 	log.Info().Any("Auth Request", req).Send()
+	if req.RequestContext.HTTP.Method == http.MethodOptions {
+		return response(true, Context{})
+	}
 
 	// if we're here, then we must have an authorization header, but the value has not been validated
 	parts := strings.Split(req.Headers["authorization"], " ")

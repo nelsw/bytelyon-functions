@@ -6,10 +6,9 @@ import (
 	"net/http"
 
 	"github.com/aws/aws-lambda-go/events"
+	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 )
-
-const msg = "API Response"
 
 func Response(a any, err error) (events.APIGatewayV2HTTPResponse, error) {
 
@@ -17,26 +16,26 @@ func Response(a any, err error) (events.APIGatewayV2HTTPResponse, error) {
 		return Error(http.StatusInternalServerError, err)
 	}
 
-	log.Info().
-		Int("code", http.StatusOK).
-		Any("body", a).
-		Msg(msg)
+	return OK(a)
+}
 
-	if a == nil {
-		return events.APIGatewayV2HTTPResponse{
-			StatusCode: http.StatusOK,
-		}, nil
+func OK(aa ...any) (events.APIGatewayV2HTTPResponse, error) {
+
+	var a any
+	if len(aa) > 0 {
+		a = aa[0]
 	}
 
-	var b []byte
-	if b, err = json.Marshal(a); err != nil {
+	if a == nil {
+		return response(http.StatusOK, "")
+	}
+
+	b, err := json.Marshal(a)
+	if err != nil {
 		return Error(http.StatusInternalServerError, err)
 	}
 
-	return events.APIGatewayV2HTTPResponse{
-		StatusCode: http.StatusOK,
-		Body:       string(b),
-	}, nil
+	return response(http.StatusOK, string(b))
 }
 
 func NotImplemented() (events.APIGatewayV2HTTPResponse, error) {
@@ -53,12 +52,32 @@ func Error(code int, err error) (events.APIGatewayV2HTTPResponse, error) {
 		err = errors.New(http.StatusText(code))
 	}
 
-	log.Err(err).
+	return response(code, err.Error())
+}
+
+func response(code int, body string) (events.APIGatewayV2HTTPResponse, error) {
+
+	var lvl zerolog.Level
+	if code < 300 {
+		lvl = zerolog.InfoLevel
+	} else if code < 500 {
+		lvl = zerolog.WarnLevel
+	} else {
+		lvl = zerolog.ErrorLevel
+	}
+
+	log.WithLevel(lvl).
 		Int("code", code).
-		Msg(msg)
+		Str("body", body).
+		Msg("API Response")
 
 	return events.APIGatewayV2HTTPResponse{
+		Headers: map[string]string{
+			"Access-Control-Allow-Origin":  "*",
+			"Access-Control-Allow-Headers": "authorization, content-type,",
+			"Access-Control-Allow-Methods": "*",
+		},
 		StatusCode: code,
-		Body:       err.Error(),
+		Body:       body,
 	}, nil
 }

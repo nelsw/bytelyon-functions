@@ -11,6 +11,10 @@ import (
 
 func Handler(req events.APIGatewayV2HTTPRequest) (events.APIGatewayV2HTTPResponse, error) {
 
+	if req.RequestContext.HTTP.Method == http.MethodOptions {
+		return api.OK()
+	}
+
 	v, err := model.NewJob(req)
 	if err != nil {
 		return api.BadRequest(err)
