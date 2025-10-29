@@ -2,74 +2,73 @@ package model
 
 import (
 	"bytelyon-functions/internal/client/s3"
+	"encoding/base64"
+	"encoding/json"
 	"errors"
-	"fmt"
-	"maps"
-	"slices"
 	"strings"
 
+	"github.com/aws/aws-lambda-go/events"
 	"github.com/oklog/ulid/v2"
 	"github.com/rs/zerolog/log"
 )
 
-const UserPath = "user"
-
-type Users []User
 type User struct {
 	ID ulid.ULID `json:"id"`
 }
 
-func (u User) Key() string {
-	return fmt.Sprintf("%s/%s", UserPath, u.ID)
-}
+func NewUser(req events.APIGatewayV2HTTPRequest) (*User, error) {
 
-func FindAllUsers(db s3.Client) (Users, error) {
+	log.Info().Any("request", req).Send()
 
-	m := map[string]User{}
-	var after string
-	var err error
-	for {
-
-		var keys []string
-		if keys, err = db.Keys(UserPath, after, 1000); err != nil {
-			log.Err(err).Msg("FindAllUsers")
-			return nil, err
-		}
-
-		for _, k := range keys {
-
-			if strings.HasPrefix(k, "user/") && strings.HasSuffix(k, "/_.json") {
-
-				k = strings.TrimPrefix(k, "user/")
-				k = strings.TrimSuffix(k, "/_.json")
-
-				if len(k) > 26 {
-					continue
-				}
-
-				if id, e := ulid.ParseStrict(k); e != nil {
-					err = errors.Join(err, e)
-				} else if _, ok := m[k]; !ok {
-					m[k] = User{ID: id}
-				}
-			}
-		}
-
-		if len(keys) == 1000 {
-			after = keys[999]
-			continue
-		}
-
-		break
+	b, err := json.Marshal(req.RequestContext.Authorizer.Lambda["user"])
+	if err != nil {
+		return nil, err
 	}
 
-	users := slices.Collect(maps.Values(m))
+	var u User
+	if err = json.Unmarshal(b, &u); err != nil {
+		return nil, err
+	}
 
-	log.Err(err).Int("count", len(users)).Msg("FindAllUsers")
-
-	return users, err
+	return &u, nil
 }
 
-func UserKey(ID ulid.ULID) string {
-	return fmt.Sprintf("%s/%s", UserPath, ID)
+func (u *User) Path() string {
+	return "user/" + u.ID.String()
+}
+
+func (u *User) Key() string {
+	return u.Path() + "/_.json"
+}
+
+func FindUser(s string) (*User, error) {
+
+	b, err := base64.StdEncoding.DecodeString(s)
+	if err != nil {
+		return nil, err
+	}
+
+	parts := strings.Split(string(b), ":")
+	if len(parts) != 2 {
+		return nil, errors.New("invalid basic token; must be base64 encoded '<email>:<password>'")
+	}
+
+	var e *Email
+	var p *Password
+	if e, err = NewEmail(parts[0]); err != nil {
+		return nil, err
+	} else if p, err = NewPassword(parts[1]); err != nil {
+		return nil, err
+	}
+
+	db := s3.New()
+	if err = e.Find(db); err != nil {
+		return nil, err
+	}
+
+	if err = p.Find(db, e.User()); err != nil {
+		return nil, err
+	}
+
+	return e.User(), nil
 }

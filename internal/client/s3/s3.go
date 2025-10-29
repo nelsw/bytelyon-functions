@@ -1,11 +1,11 @@
 package s3
 
 import (
-	"bytelyon-functions/internal/app"
 	"bytes"
 	"context"
 	"encoding/json"
 	"io"
+	"os"
 	"strings"
 
 	"github.com/aws/aws-sdk-go-v2/config"
@@ -13,6 +13,8 @@ import (
 )
 
 const MAX_RESULTS = 1000
+
+var ctx = context.Background()
 
 type Client interface {
 	Delete(string) error
@@ -85,7 +87,11 @@ func (c *client) Put(k string, data []byte) error {
 }
 
 func (c *client) Save(k string, a any) error {
-	return c.Put(k, app.MustMarshal(a))
+	b, err := json.Marshal(&a)
+	if err != nil {
+		return err
+	}
+	return c.Put(k, b)
 }
 
 func (c *client) Keys(prefix, after string, size int) (keys []string, err error) {
@@ -121,11 +127,15 @@ func key(s string) *string {
 }
 
 // New returns a new S3 client with the provided context.
-func New(ctx context.Context) Client {
+func New() Client {
 	cfg, _ := config.LoadDefaultConfig(ctx)
+	mode := os.Getenv("APP_MODE")
+	if mode == "" {
+		mode = "test"
+	}
 	return &client{
 		s3.NewFromConfig(cfg),
 		ctx,
-		"bytelyon-db-" + app.Mode(),
+		"bytelyon-db-" + mode,
 	}
 }

@@ -1,9 +1,9 @@
 package model
 
 import (
+	"bytelyon-functions/internal/client/s3"
 	"encoding/base64"
 	"errors"
-	"fmt"
 	"net/mail"
 
 	"github.com/oklog/ulid/v2"
@@ -11,23 +11,29 @@ import (
 
 // Email is the starting point for Authenticating a [User].
 type Email struct {
-	ID       string    `json:"id"`
-	UserID   ulid.ULID `json:"user_id"`
-	Verified bool      `json:"verified"`
-	Token    ulid.ULID `json:"token"`
+	ID     string    `json:"id"`
+	UserID ulid.ULID `json:"user_id"`
 }
 
-func (e Email) Validate() error {
-	if _, err := mail.ParseAddress(e.ID); err != nil {
-		return errors.Join(err, errors.New("invalid email address"))
+func NewEmail(s string) (*Email, error) {
+	if _, err := mail.ParseAddress(s); err != nil {
+		return nil, errors.Join(err, errors.New("invalid email address"))
 	}
-	return nil
+	return &Email{ID: s}, nil
 }
 
-func (e Email) Path() string {
-	return fmt.Sprintf("email/%s", base64.URLEncoding.EncodeToString([]byte(e.ID)))
+func (e *Email) Path() string {
+	return "email/" + base64.URLEncoding.EncodeToString([]byte(e.ID))
 }
 
-func (e Email) User() User {
-	return User{ID: e.UserID}
+func (e *Email) Key() string {
+	return e.Path() + "/_.json"
+}
+
+func (e *Email) User() *User {
+	return &User{ID: e.UserID}
+}
+
+func (e *Email) Find(db s3.Client) error {
+	return db.Find(e.Key(), e)
 }

@@ -4,13 +4,11 @@ include .env
 
 build:
 	@printf "➜  %s  %s [\033[35m%s\033[0m]" "🛠" "build" ${name}
-	@sed -i '' -e '4 s/handler\/.*/handler\/${name}"/g' ./cmd/main.go
-	@GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build -tags lambda.norpc -o bootstrap ./cmd/main.go
+	@GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build -tags lambda.norpc -o bootstrap ./cmd/${name}/main.go
 	@zip -r9 main.zip bootstrap > /dev/null
 	@printf "  ✅\n"
 
 clean:
-	@sed -i '' -e '4 s/handler\/.*/handler\/tmp"/g' ./cmd/main.go
 	@printf "➜  %s  %s [\033[35m%s\033[0m]" "🧽" "clean" "*"
 	@rm -f ./bootstrap
 	@rm -f ./main.zip
@@ -29,7 +27,7 @@ create: build
 		--memory-size "512" \
 		--timeout "30" \
 		--publish \
-		--environment "Variables={$(shell tr '\n' ',' < ./internal/handler/${name}/.env)}" > /dev/null
+		--environment "Variables={$(shell tr '\n' ',' < ./cmd/${name}/.env)}" > /dev/null
 	@printf "  ✅\n"
 	@make clean
 
@@ -78,7 +76,7 @@ update: build
 	@aws lambda update-function-configuration \
     		--function-name bytelyon-${name} \
     		--role ${ROLE} \
-    		--environment "Variables={$(shell tr '\n' ',' < ./internal/handler/${name}/.env)}" > /dev/null
+    		--environment "Variables={$(shell tr '\n' ',' < ./cmd/${name}/.env)}" > /dev/null
 	@aws lambda update-function-code --zip-file fileb://./main.zip --function-name bytelyon-${name} > /dev/null
 	@printf "  ✅\n"
 	@make clean

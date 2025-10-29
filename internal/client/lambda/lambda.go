@@ -1,8 +1,8 @@
 package lambda
 
 import (
-	"bytelyon-functions/internal/app"
 	"context"
+	"encoding/json"
 
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/lambda"
@@ -19,11 +19,16 @@ type Client struct {
 
 func (c *Client) Request(ctx context.Context, name string, a any) (out []byte, err error) {
 
+	var in []byte
+	if in, err = json.Marshal(&a); err != nil {
+		return nil, err
+	}
+
 	var output *lambda.InvokeOutput
 	output, err = c.Invoke(ctx, &lambda.InvokeInput{
 		FunctionName:   &name,
 		InvocationType: types.InvocationTypeRequestResponse,
-		Payload:        app.MustMarshal(a),
+		Payload:        in,
 	})
 
 	if err == nil {

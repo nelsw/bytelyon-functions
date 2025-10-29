@@ -1,11 +1,8 @@
 package model
 
 import (
-	"bytelyon-functions/internal/client/s3"
 	"bytes"
-	"encoding/base64"
 	"encoding/json"
-	"encoding/xml"
 	"errors"
 	"fmt"
 	"io"
@@ -13,55 +10,18 @@ import (
 	"net/url"
 	"regexp"
 	"strings"
-	"time"
 
+	"github.com/oklog/ulid/v2"
 	"golang.org/x/net/html"
 )
 
-var bingRegexp = regexp.MustCompile("</?News(:\\w+)>")
-
-type RSS struct {
-	Channel struct {
-		Items Items `xml:"item"`
-	} `xml:"channel"`
-}
-
 type Items []Item
-
-func MakeNewsItems(url string) (Items, error) {
-	res, e := http.Get(url)
-	if e != nil {
-		return nil, errors.Join(errors.New("failed to http.Get url"), e)
-	}
-	defer res.Body.Close()
-
-	var b []byte
-	if b, e = io.ReadAll(res.Body); e != nil {
-		return nil, errors.Join(errors.New("failed to io.ReadAll response body"), e)
-	}
-
-	if strings.Contains(url, "https://www.bing.com/") {
-		str := bingRegexp.ReplaceAllStringFunc(string(b), func(s string) string {
-			return strings.ReplaceAll(s, ":", "_")
-		})
-		b = []byte(str)
-	}
-
-	var rss RSS
-	if e = xml.Unmarshal(b, &rss); e != nil {
-		return nil, errors.Join(errors.New("failed to unmarshal xml"), e)
-	}
-
-	return rss.Channel.Items, nil
-}
-
 type Item struct {
-	ID      string    `json:"id" xml:"-"`
-	Created time.Time `json:"created" xml:"-"`
-	URL     string    `json:"link" xml:"link"`
-	Title   string    `json:"title" xml:"title"`
-	Time    *DateTime `json:"published" xml:"pubDate"`
-	Source  *struct {
+	ID     ulid.ULID `json:"id" xml:"-"`
+	URL    string    `json:"link" xml:"link"`
+	Title  string    `json:"title" xml:"title"`
+	Time   *DateTime `json:"published" xml:"pubDate"`
+	Source *struct {
 		URL   string `json:"url,omitempty" xml:"url,attr"`
 		Value string `json:"value,omitempty" xml:",chardata"`
 	} `json:"source,omitempty" xml:"source"`
@@ -70,70 +30,6 @@ type Item struct {
 	NewsImageSize      string `json:"news_image_size,omitempty" xml:"News_ImageSize"`
 	NewsImageMaxWidth  int    `json:"news_image_max_width,omitempty" xml:"News_ImageMaxWidth"`
 	NewsImageMaxHeight int    `json:"news_image_max_height,omitempty" xml:"News_ImageMaxHeight"`
-}
-
-func (i Item) Create(db s3.Client, jobKey string) error {
-	if strings.HasPrefix(i.URL, "https://news.google.com/") {
-		if s, e := decodeGoogleNewsURL(i.URL); e == nil {
-			i.URL = s
-		}
-	} else if strings.HasPrefix(i.URL, "http://www.bing.com/news/") {
-		if s, e := decodeBingNewsURL(i.URL); e == nil {
-			i.URL = s
-		}
-	}
-	i.ID = base64.URLEncoding.EncodeToString([]byte(i.URL))
-	i.Created = time.Now().UTC()
-	return db.Save(ItemKey(jobKey, i.ID), i)
-}
-
-func ItemKey(jobKey string, itemID string) string {
-	return fmt.Sprintf("%s/%s", ItemPath(jobKey), itemID)
-}
-
-func ItemPath(jobKey string) string {
-	return fmt.Sprintf("%s/item", jobKey)
-}
-
-type DateTime time.Time
-
-func (v *DateTime) UnmarshalXML(d *xml.Decoder, start xml.StartElement) error {
-	var s string
-	if err := d.DecodeElement(&s, &start); err != nil {
-		return err
-	}
-
-	s = strings.Trim(s, `"`) // Remove quotes from the JSON string
-	if s == "" || s == "null" {
-		return nil // Handle empty or null strings
-	}
-
-	t, err := time.Parse(time.RFC1123, s) // Parse using your custom format
-	if err != nil {
-		return err
-	}
-
-	*v = DateTime(t)
-	return nil
-}
-
-func (v *DateTime) UnmarshalJSON(b []byte) error {
-	s := string(b)
-	s = strings.Trim(s, `"`) // Remove quotes from the JSON string
-	if s == "" || s == "null" {
-		return nil // Handle empty or null strings
-	}
-
-	t, err := time.Parse(time.RFC3339, s)
-	if err != nil {
-		return err
-	}
-	*v = DateTime(t)
-	return nil
-}
-
-func (v *DateTime) MarshalJSON() ([]byte, error) {
-	return []byte(`"` + time.Time(*v).Format(time.RFC3339) + `"`), nil
 }
 
 func decodeBingNewsURL(s string) (string, error) {
@@ -254,4 +150,17 @@ func decodeGoogleNewsURLParts(signature, timestamp, base64Str string) (string, e
 	}
 
 	return s, nil
+}
+
+func (i *Item) Scrub() {
+	i.ID = i.Time.ULID()
+	var s string
+	if strings.HasPrefix(i.URL, "https://news.google.com/") {
+		s, _ = decodeGoogleNewsURL(i.URL)
+	} else if strings.HasPrefix(i.URL, "http://www.bing.com/news/") {
+		s, _ = decodeBingNewsURL(i.URL)
+	}
+	if s != "" {
+		i.URL = s
+	}
 }

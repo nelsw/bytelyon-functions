@@ -1,46 +1,27 @@
 package model
 
 import (
+	"bytelyon-functions/internal/client/s3"
 	"errors"
-	"fmt"
 	"unicode"
 
-	"github.com/oklog/ulid/v2"
 	"golang.org/x/crypto/bcrypt"
 )
 
 type Password struct {
-	User User   `json:"-"`
-	Hash []byte `json:"hash"`
+	User *User  `json:"-"`
 	Text string `json:"-"`
+	Hash []byte `json:"hash"`
 }
 
-func NewPassword(userID ulid.ULID, s string) (*Password, error) {
-	p := &Password{User: User{ID: userID}, Text: s}
-	if err := p.Validate(); err != nil {
-		return nil, err
-	} else if p.Hash, err = bcrypt.GenerateFromPassword([]byte(s), bcrypt.MinCost); err != nil {
-		return nil, err
-	}
-	return p, nil
-}
+func NewPassword(s string) (*Password, error) {
 
-func (p Password) Path() string {
-	return fmt.Sprintf("%s/pork", p.User.Key())
-}
-
-func (p Password) Compare() error {
-	return bcrypt.CompareHashAndPassword(p.Hash, []byte(p.Text))
-}
-
-func (p Password) Validate() error {
-
-	if len(p.Text) < 8 {
-		return errors.New("password must be at least 8 characters")
+	if len(s) < 8 {
+		return nil, errors.New("password must be at least 8 characters")
 	}
 
 	var number, lower, upper, special bool
-	for _, c := range p.Text {
+	for _, c := range s {
 		switch {
 		case unicode.IsNumber(c):
 			number = true
@@ -54,13 +35,42 @@ func (p Password) Validate() error {
 	}
 
 	if !lower {
-		return errors.New("password must contain at least one lowercase letter")
+		return nil, errors.New("password must contain at least one lowercase letter")
 	} else if !upper {
-		return errors.New("password must have at least 1 uppercase character")
+		return nil, errors.New("password must have at least 1 uppercase character")
 	} else if !special {
-		return errors.New("password must have at least 1 special character")
+		return nil, errors.New("password must have at least 1 special character")
 	} else if !number {
-		return errors.New("password must have at least 1 number character")
+		return nil, errors.New("password must have at least 1 number character")
 	}
+
+	return &Password{
+		Text: s,
+	}, nil
+}
+
+func (p *Password) Compare(b []byte) error {
+	return bcrypt.CompareHashAndPassword(b, []byte(p.Text))
+}
+
+func (p *Password) Path() string {
+	return p.User.Path() + "/pork"
+}
+
+func (p *Password) Key() string {
+	return p.Path() + "/_.json"
+}
+
+func (p *Password) Find(db s3.Client, u *User) error {
+
+	p.User = u
+	hash := p.Hash
+
+	if err := db.Find(p.Key(), &p); err != nil {
+		return err
+	} else if err = p.Compare(hash); err != nil {
+		return err
+	}
+
 	return nil
 }

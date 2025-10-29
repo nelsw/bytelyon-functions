@@ -1,27 +1,14 @@
-package test
+package api
 
 import (
-	"bytelyon-functions/internal/app"
-	"bytelyon-functions/internal/model"
-	"context"
 	"os"
 	"strings"
-	"testing"
 
-	"github.com/oklog/ulid/v2"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 )
 
-var CTX = context.Background()
-
-func Init(t *testing.T) {
-	t.Setenv("APP_MODE", "test")
-	t.Setenv("JWT_SECRET", "a-string-secret-at-least-256-bits-long")
-	initLogger()
-}
-
-func initLogger() {
+func InitLogger() {
 	log.Logger = log.Output(zerolog.ConsoleWriter{
 		Out: os.Stderr,
 		FormatLevel: func(a any) string {
@@ -45,12 +32,4 @@ func initLogger() {
 			return color + level + "\033[0m" // Reset color after level
 		},
 	})
-}
-
-func FakeUser() model.User {
-	return model.User{ID: app.NewUlid()}
-}
-
-func DemoUser() model.User {
-	return model.User{ID: ulid.MustParse("01K48PC0BK13BWV2CGWFP8QQH0")}
 }
