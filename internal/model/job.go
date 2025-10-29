@@ -46,14 +46,15 @@ func NewJob(req events.APIGatewayV2HTTPRequest) (*Job, error) {
 	}
 
 	var j Job
-	err = json.Unmarshal([]byte(req.Body), &j)
-	if err != nil {
-		return nil, err
+	if req.Body != "" {
+		if err = json.Unmarshal([]byte(req.Body), &j); err != nil {
+			return nil, err
+		}
 	}
 
 	j.User = u
 
-	if j.ID.IsZero() {
+	if j.ID.IsZero() && req.QueryStringParameters["id"] != "" {
 		j.ID = ulid.MustParse(req.QueryStringParameters["id"])
 	}
 
