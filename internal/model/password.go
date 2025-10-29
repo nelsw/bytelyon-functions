@@ -1,7 +1,7 @@
 package model
 
 import (
-	"bytelyon-functions/internal/client/s3"
+	"bytelyon-functions/internal/service/s3"
 	"errors"
 	"unicode"
 
@@ -61,7 +61,7 @@ func (p *Password) Key() string {
 	return p.Path() + "/_.json"
 }
 
-func (p *Password) Find(db s3.Client, u *User) error {
+func (p *Password) Find(db s3.Service, u *User) error {
 
 	p.User = u
 	hash := p.Hash

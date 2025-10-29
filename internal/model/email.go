@@ -1,7 +1,7 @@
 package model
 
 import (
-	"bytelyon-functions/internal/client/s3"
+	"bytelyon-functions/internal/service/s3"
 	"encoding/base64"
 	"errors"
 	"net/mail"
@@ -34,6 +34,6 @@ func (e *Email) User() *User {
 	return &User{ID: e.UserID}
 }
 
-func (e *Email) Find(db s3.Client) error {
+func (e *Email) Find(db s3.Service) error {
 	return db.Find(e.Key(), e)
 }

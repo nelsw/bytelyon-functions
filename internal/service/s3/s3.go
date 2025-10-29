@@ -12,11 +12,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 )
 
-const MAX_RESULTS = 1000
-
-var ctx = context.Background()
-
-type Client interface {
+type Service interface {
 	Delete(string) error
 	Find(string, any) error
 	Get(string) ([]byte, error)
@@ -126,8 +122,9 @@ func key(s string) *string {
 	return &s
 }
 
-// New returns a new S3 client with the provided context.
-func New() Client {
+// New returns a new S3 service with the provided context.
+func New() Service {
+	ctx := context.Background()
 	cfg, _ := config.LoadDefaultConfig(ctx)
 	mode := os.Getenv("APP_MODE")
 	if mode == "" {
