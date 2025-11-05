@@ -21,11 +21,10 @@ func DemoUser() model.User {
 
 func Test_POST(t *testing.T) {
 
-	res, _ := Handler(api.
+	req := api.
 		NewRequest().
-		User(DemoUser()).
-		Method(http.MethodPost).
-		Data(model.Job{
+		WithUser(DemoUser()).
+		WithData(model.Job{
 			Type: model.NewsJobType,
 			Frequency: model.Frequency{
 				Unit:  model.Hour,
@@ -34,19 +33,21 @@ func Test_POST(t *testing.T) {
 			Name:     gofakeit.Word(),
 			Desc:     gofakeit.Sentence(10),
 			Keywords: []string{"GMC", "Sierra 1500"},
-		}).
-		Build())
+		}).Post()
+
+	res, _ := Handler(req)
 
 	assert.Equal(t, res.StatusCode, http.StatusOK)
 }
 
 func Test_GET(t *testing.T) {
 
-	res, _ := Handler(api.
+	req := api.
 		NewRequest().
-		User(DemoUser()).
-		Method(http.MethodGet).
-		Build())
+		WithUser(DemoUser()).
+		Get()
+
+	res, _ := Handler(req)
 
 	assert.Equal(t, res.StatusCode, http.StatusOK)
 }

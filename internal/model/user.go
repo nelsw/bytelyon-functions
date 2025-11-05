@@ -9,7 +9,6 @@ import (
 
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/oklog/ulid/v2"
-	"github.com/rs/zerolog/log"
 )
 
 type User struct {
@@ -17,8 +16,6 @@ type User struct {
 }
 
 func NewUser(req events.APIGatewayV2HTTPRequest) (*User, error) {
-
-	log.Info().Any("request", req).Send()
 
 	b, err := json.Marshal(req.RequestContext.Authorizer.Lambda["user"])
 	if err != nil {

@@ -11,8 +11,8 @@ import (
 // Crawler encapsulates asynchronous page traversal logic
 type Crawler struct {
 	Fetcher
-	relative map[string]bool
-	remote   map[string]bool
+	relative map[string]URL
+	remote   map[string]URL
 	mu       sync.Mutex
 	wg       sync.WaitGroup
 }
@@ -20,8 +20,8 @@ type Crawler struct {
 func NewCrawler(fetcher Fetcher) *Crawler {
 	return &Crawler{
 		Fetcher:  fetcher,
-		relative: make(map[string]bool),
-		remote:   make(map[string]bool),
+		relative: make(map[string]URL),
+		remote:   make(map[string]URL),
 	}
 }
 
@@ -29,7 +29,7 @@ func NewCrawler(fetcher Fetcher) *Crawler {
 // We use sync properties defined in the Crawler to crawl in parallel.
 // We also used a couple of maps as a means of bread-crumbing where we've been.
 // Ultimately, all we end up doing is logging the results ... for meow 🐱.
-func (c *Crawler) Crawl(URL string, depth int) {
+func (c *Crawler) Crawl(URL URL, depth int) {
 
 	// play it smart and safe - defer done before anything else
 	defer c.wg.Done()
@@ -40,19 +40,19 @@ func (c *Crawler) Crawl(URL string, depth int) {
 	}
 
 	// Fetch the url and handle return arguments appropriately
-	URLs, links, err := c.Fetch(URL)
+	relativeURLs, remoteURLs, err := c.Fetch(URL)
+
+	// Store all external links to crawler so that we can make note of egress points
+	c.putAllRemote(remoteURLs)
 
 	// fail fast on the error, no urls or links to follow
 	if err != nil {
-		log.Err(err).Str("URL", URL).Msg("failed to fetch")
+		log.Err(err).Str("URL", URL.String()).Msg("failed to fetch")
 		return
 	}
 
-	// Store all external links to crawler so that we can make note of egress points
-	c.putAllRemote(links)
-
 	// Attempt to crawl each of the domain-specific urls we returned from fetch()
-	for _, u := range URLs {
+	for _, u := range relativeURLs {
 		c.Add()
 		go c.Crawl(u, depth-1)
 	}
@@ -66,23 +66,20 @@ func (c *Crawler) Wait() {
 	c.wg.Wait()
 }
 
-func (c *Crawler) putRelative(url string) (ok bool) {
+func (c *Crawler) putRelative(url URL) (ok bool) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	if _, ok = c.relative[url]; !ok {
-		c.relative[url] = true
+	if _, ok = c.relative[url.String()]; !ok {
+		c.relative[url.String()] = url
 	}
 	return ok
 }
 
-func (c *Crawler) putAllRemote(urls []string) {
-	if len(urls) == 0 {
-		return
-	}
+func (c *Crawler) putAllRemote(urls []URL) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	for _, u := range urls {
-		c.remote[u] = true
+	for _, url := range urls {
+		c.remote[url.String()] = url
 	}
 }
 

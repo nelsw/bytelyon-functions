@@ -8,7 +8,6 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/aws/aws-lambda-go/events"
 	"github.com/oklog/ulid/v2"
 )
 
@@ -38,25 +37,22 @@ type Job struct {
 	Items     Items     `json:"items"`
 }
 
-func NewJob(req events.APIGatewayV2HTTPRequest) (*Job, error) {
+func NewJob(user *User, id string, body []byte) (*Job, error) {
 
-	u, err := NewUser(req)
+	var j Job
+	_ = json.Unmarshal(body, &j)
+
+	j.User = user
+	if !j.ID.IsZero() {
+		return &j, nil
+	}
+
+	ID, err := ulid.Parse(id)
 	if err != nil {
 		return nil, err
 	}
 
-	var j Job
-	if req.Body != "" {
-		if err = json.Unmarshal([]byte(req.Body), &j); err != nil {
-			return nil, err
-		}
-	}
-
-	j.User = u
-
-	if j.ID.IsZero() && req.QueryStringParameters["id"] != "" {
-		j.ID = ulid.MustParse(req.QueryStringParameters["id"])
-	}
+	j.ID = ID
 
 	return &j, err
 }

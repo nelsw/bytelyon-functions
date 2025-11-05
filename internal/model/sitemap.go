@@ -2,29 +2,18 @@ package model
 
 import (
 	"bytelyon-functions/internal/service/s3"
-	"encoding/base64"
 	"encoding/json"
 	"errors"
-	"net/http"
-	"net/url"
-	"strings"
 	"time"
 
-	"github.com/aws/aws-lambda-go/events"
 	"github.com/rs/zerolog/log"
 	"golang.org/x/net/html"
 )
 
-type Fetcher interface {
-	// Fetch returns the given URL and collects internal urls and external links.
-	// Note that we do not crawl external links, but we keep track of them. For reasons.
-	Fetch(string) ([]string, []string, error)
-}
-type Sitemaps []Sitemap
 type Sitemap struct {
 	User     *User     `json:"-"`
 	ID       string    `json:"id"`
-	URL      string    `json:"url"`
+	URL      URL       `json:"url"`
 	Domain   string    `json:"domain"`
 	Start    time.Time `json:"start"`
 	Duration float64   `json:"duration"`
@@ -40,55 +29,25 @@ func (s *Sitemap) Key() string {
 	return s.Path() + "/" + s.ID + "/_.json"
 }
 
-func NewSitemap(req events.APIGatewayV2HTTPRequest) (*Sitemap, error) {
+func NewSitemap(user *User, encodedURL string) (*Sitemap, error) {
 
-	u, err := NewUser(req)
+	url, err := DecodeURL(encodedURL)
 	if err != nil {
-		return nil, err
-	}
-
-	encodedURL := req.QueryStringParameters["url"]
-	if encodedURL == "" {
-		return &Sitemap{
-			User: u,
-		}, nil
-	}
-
-	var b []byte
-	if b, err = base64.URLEncoding.DecodeString(encodedURL); err != nil {
-		return nil, err
-	}
-
-	decodedURL := string(b)
-	if _, err = url.ParseRequestURI(decodedURL); err != nil {
 		return nil, err
 	}
 
 	return &Sitemap{
-		ID:   encodedURL,
-		User: u,
-		URL:  decodedURL,
+		ID:     encodedURL,
+		User:   user,
+		URL:    url,
+		Domain: url.Domain(),
 	}, nil
 }
 
-func (s *Sitemap) Fetch(URL string) (relative, remote []string, err error) {
+func (s *Sitemap) Fetch(u URL) (relative, remote []URL, err error) {
 
-	// filter out mailto: and email addresses
-	if strings.HasPrefix(URL, "mailto:") || strings.HasSuffix(URL, "@"+s.Domain) {
-		return
-	}
-
-	// execute a plain get request and attempt to traverse
-	var resp *http.Response
-	if resp, err = s.get(URL, 0); err != nil {
-		return
-	}
-
-	// define a document node to do DOM things
 	var doc *html.Node
-	doc, err = html.Parse(resp.Body)
-	_ = resp.Body.Close()
-	if err != nil {
+	if doc, err = u.Document(); err != nil {
 		return
 	}
 
@@ -109,41 +68,30 @@ func (s *Sitemap) Fetch(URL string) (relative, remote []string, err error) {
 					continue
 				}
 
-				// trim it or leave this house right, Jeffrey.
-				href := strings.TrimSpace(a.Val)
+				href := MakeURL(a.Val)
 
-				// trim potential trailing slashes
-				href = strings.TrimSuffix(href, "/")
-
-				// validate the anchor value
-				if len(href) == 0 {
+				if err = href.Validate(); err != nil {
 					continue
 				}
 
 				// check if the anchor is valid and not a hash/mail/tel reference or email address
-				if strings.HasSuffix(href, "@"+s.Domain) ||
-					strings.HasPrefix(href, "mailto:") ||
-					strings.HasPrefix(href, "tel:") ||
-					strings.HasPrefix(href, "#") {
+				if href.StartsWith("mailto:", "tel:", "#") || href.EndsWith("@"+s.Domain) {
 					continue
 				}
 
 				// check if the anchor is only a path; prefix root URL if so
-				if v := string(href[0]); v == "/" || v == "?" {
-					relative = append(relative, s.URL+href)
+				if href.StartsWith("/", "?") {
+					relative = append(relative, s.URL.Append(href))
 					continue
 				}
 
 				// check if the anchor starts with the domain + "https://www."
-				if i := strings.Index(href, s.Domain); i >= 0 && i <= 12 {
+				if href.Domain() == s.Domain {
 					relative = append(relative, href)
 					continue
 				}
 
-				// check if the anchor is a valid remote URL
-				if _, err = url.Parse(href); err == nil {
-					remote = append(remote, href)
-				}
+				remote = append(remote, href)
 			}
 		}
 
@@ -159,33 +107,7 @@ func (s *Sitemap) Fetch(URL string) (relative, remote []string, err error) {
 	return
 }
 
-func (s *Sitemap) get(URL string, attempt int) (*http.Response, error) {
-
-	if attempt > 0 {
-		time.Sleep(time.Duration(attempt*3) * time.Second)
-	}
-
-	if resp, err := http.Get(URL); err == nil {
-		return resp, nil
-	} else if attempt <= 3 {
-		return s.get(URL, attempt+1)
-	} else {
-		log.Err(err).Str("URL", URL).Msg("failed to http.Get")
-		return nil, err
-	}
-}
-
 func (s *Sitemap) Create() (*Sitemap, error) {
-
-	// remove the schemes
-	s.Domain = strings.TrimPrefix(s.URL, "http://")
-	s.Domain = strings.TrimPrefix(s.Domain, "https://")
-	// remove the wild-wild web
-	s.Domain = strings.TrimPrefix(s.Domain, "www.")
-	// remove the path and query params after the domain extension
-	if i := strings.Index(s.Domain, "/"); i > 0 {
-		s.Domain = s.Domain[:i]
-	}
 
 	// new up a Crawler using a reference to the Sitemap, aka Fetcher
 	crawler := NewCrawler(s)
@@ -214,7 +136,7 @@ func (s *Sitemap) Create() (*Sitemap, error) {
 	// log the results
 	log.Logger.
 		Err(err).
-		Str("URL", s.URL).
+		Str("URL", s.URL.String()).
 		Int("visited", len(s.Relative)).
 		Int("tracked", len(s.Remote)).
 		Msg("Sitemap Created")
@@ -222,7 +144,7 @@ func (s *Sitemap) Create() (*Sitemap, error) {
 	return s, err
 }
 
-func (s *Sitemap) FindAll() (Sitemaps, error) {
+func (s *Sitemap) FindAll() ([]Sitemap, error) {
 
 	db := s3.New()
 
@@ -231,7 +153,7 @@ func (s *Sitemap) FindAll() (Sitemaps, error) {
 		return nil, err
 	}
 
-	var vv Sitemaps
+	var vv []Sitemap
 	for _, k := range keys {
 
 		o, e := db.Get(k)

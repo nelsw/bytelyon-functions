@@ -22,9 +22,8 @@ func Test_Handler(t *testing.T) {
 
 	req := api.
 		NewRequest().
-		User(DemoUser()).
-		Method(http.MethodGet).
-		Build()
+		WithUser(DemoUser()).
+		Get()
 
 	res, _ := Handler(req)
 
