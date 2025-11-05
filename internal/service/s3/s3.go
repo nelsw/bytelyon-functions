@@ -17,8 +17,6 @@ type Service interface {
 	Find(string, any) error
 	Get(string) ([]byte, error)
 	Put(string, []byte) error
-	Save(string, any) error
-	Move(string, string) error
 	Keys(string, string, int) ([]string, error)
 }
 
@@ -26,20 +24,6 @@ type client struct {
 	*s3.Client
 	ctx    context.Context
 	bucket string
-}
-
-func (c *client) Move(oldKey, newKey string) error {
-
-	b, err := c.Get(oldKey)
-	if err != nil {
-		return err
-	}
-
-	if err = c.Put(newKey, b); err != nil {
-		return err
-	}
-
-	return c.Delete(oldKey)
 }
 
 func (c *client) Delete(k string) error {
@@ -80,14 +64,6 @@ func (c *client) Put(k string, data []byte) error {
 		Body:   bytes.NewReader(data),
 	})
 	return err
-}
-
-func (c *client) Save(k string, a any) error {
-	b, err := json.Marshal(&a)
-	if err != nil {
-		return err
-	}
-	return c.Put(k, b)
 }
 
 func (c *client) Keys(prefix, after string, size int) (keys []string, err error) {

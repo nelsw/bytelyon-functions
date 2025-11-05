@@ -20,7 +20,7 @@ create: build
 	@aws lambda create-function \
 		--function-name bytelyon-${name} \
 		--runtime "provided.al2023" \
-		--role ${ROLE} \
+		--role ${AWS_IAM_ROLE} \
 		--architectures arm64 \
 		--handler "bootstrap" \
 		--zip-file "fileb://./main.zip" \
@@ -75,7 +75,7 @@ update: build
 	@printf "➜  %s  %s [\033[35m%s\033[0m]" "💾" "update" ${name}
 	@aws lambda update-function-configuration \
     		--function-name bytelyon-${name} \
-    		--role ${ROLE} \
+    		--role ${AWS_IAM_ROLE} \
     		--environment "Variables={$(shell tr '\n' ',' < ./cmd/${name}/.env)}" > /dev/null
 	@aws lambda update-function-code --zip-file fileb://./main.zip --function-name bytelyon-${name} > /dev/null
 	@printf "  ✅\n"
@@ -93,3 +93,32 @@ invoke:
 		--payload '{ "url": "https://google.com/search?q=corsair+marine+970" }' \
 		response.json > /dev/null
 	@printf "  ✅\n"
+
+login:
+	aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin ${AWS_ACCOUNT_ID}.dkr.ecr.us-east-1.amazonaws.com
+
+repo:
+	aws ecr create-repository \
+		--repository-name ${name} \
+		--region us-east-1 \
+		--image-scanning-configuration scanOnPush=true \
+		--image-tag-mutability MUTABLE > /dev/null
+
+push:
+	docker buildx build --platform linux/arm64 --provenance=false -t ${name}:latest .
+	docker tag ${name}:latest ${AWS_ACCOUNT_ID}.dkr.ecr.us-east-1.amazonaws.com/${name}:latest
+	docker push ${AWS_ACCOUNT_ID}.dkr.ecr.us-east-1.amazonaws.com/${name}:latest
+
+create-image: login repo push
+	aws lambda create-function \
+	  --function-name ${name} \
+	  --package-type Image \
+	  --architectures arm64 \
+	  --code ImageUri=${AWS_ACCOUNT_ID}.dkr.ecr.us-east-1.amazonaws.com/${name}:latest \
+	  --role ${AWS_IAM_ROLE} > /dev/null
+
+update-image: login push
+	aws lambda update-function-code \
+      --function-name ${name} \
+      --image-uri ${AWS_ACCOUNT_ID}.dkr.ecr.us-east-1.amazonaws.com/${name}:latest \
+      --publish > /dev/null
