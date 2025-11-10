@@ -10,6 +10,10 @@ type User struct {
 	ID ulid.ULID `json:"id"`
 }
 
+func MakeDemoUser() User {
+	return User{ID: ulid.MustParse("01K48PC0BK13BWV2CGWFP8QQH0")}
+}
+
 func (u *User) Path() string {
 	return "user/" + u.ID.String()
 }
