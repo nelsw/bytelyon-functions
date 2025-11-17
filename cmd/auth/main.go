@@ -1,7 +1,7 @@
 package main
 
 import (
-	"bytelyon-functions/internal/model"
+	"bytelyon-functions/pkg/model"
 	"net/http"
 	"os"
 	"regexp"

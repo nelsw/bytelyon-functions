@@ -1,8 +1,8 @@
 package model
 
 import (
-	"bytelyon-functions/internal/service/playwrighter"
-	"bytelyon-functions/internal/service/s3"
+	"bytelyon-functions/pkg/service/playwrighter"
+	"bytelyon-functions/pkg/service/s3"
 	"encoding/json"
 	"errors"
 	"fmt"

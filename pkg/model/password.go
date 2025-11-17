@@ -1,7 +1,7 @@
 package model
 
 import (
-	"bytelyon-functions/internal/service/s3"
+	"bytelyon-functions/pkg/service/s3"
 	"errors"
 	"unicode"
 

@@ -1,7 +1,7 @@
 package api
 
 import (
-	"bytelyon-functions/internal/model"
+	"bytelyon-functions/pkg/model"
 	"encoding/json"
 	"net/http"
 

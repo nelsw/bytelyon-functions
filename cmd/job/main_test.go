@@ -1,8 +1,8 @@
 package main
 
 import (
-	"bytelyon-functions/internal/api"
-	"bytelyon-functions/internal/model"
+	api2 "bytelyon-functions/pkg/api"
+	model2 "bytelyon-functions/pkg/model"
 	"net/http"
 	"testing"
 
@@ -12,22 +12,21 @@ import (
 )
 
 func init() {
-	api.InitLogger()
+	api2.InitLogger()
 }
 
-func DemoUser() model.User {
-	return model.User{ID: ulid.MustParse("01K48PC0BK13BWV2CGWFP8QQH0")}
+func DemoUser() model2.User {
+	return model2.User{ID: ulid.MustParse("01K48PC0BK13BWV2CGWFP8QQH0")}
 }
 
 func Test_POST(t *testing.T) {
 
-	req := api.
-		NewRequest().
+	req := api2.NewRequest().
 		WithUser(DemoUser()).
-		WithData(model.Job{
-			Type: model.NewsJobType,
-			Frequency: model.Frequency{
-				Unit:  model.Hour,
+		WithData(model2.Job{
+			Type: model2.NewsJobType,
+			Frequency: model2.Frequency{
+				Unit:  model2.Hour,
 				Value: 1,
 			},
 			Name:     gofakeit.Word(),
@@ -42,8 +41,7 @@ func Test_POST(t *testing.T) {
 
 func Test_GET(t *testing.T) {
 
-	req := api.
-		NewRequest().
+	req := api2.NewRequest().
 		WithUser(DemoUser()).
 		Get()
 

@@ -1,9 +1,9 @@
 package main
 
 import (
-	"bytelyon-functions/internal/api"
-	"bytelyon-functions/internal/model"
-	"bytelyon-functions/internal/service/s3"
+	api2 "bytelyon-functions/pkg/api"
+	"bytelyon-functions/pkg/model"
+	"bytelyon-functions/pkg/service/s3"
 	"net/http"
 
 	"github.com/aws/aws-lambda-go/events"
@@ -16,7 +16,7 @@ func init() {
 	db = s3.New()
 }
 
-func Handler(req api.Request) (events.APIGatewayV2HTTPResponse, error) {
+func Handler(req api2.Request) (events.APIGatewayV2HTTPResponse, error) {
 
 	req.Log()
 
@@ -24,17 +24,17 @@ func Handler(req api.Request) (events.APIGatewayV2HTTPResponse, error) {
 
 	switch req.Method() {
 	case http.MethodGet:
-		return api.Response(v, v.Find(db))
+		return api2.Response(v, v.Find(db))
 	case http.MethodPut:
 		if err := v.Hydrate(req.Body); err != nil {
-			return api.BadRequest(err)
+			return api2.BadRequest(err)
 		} else if err = v.Validate(); err != nil {
-			return api.BadRequest(err)
+			return api2.BadRequest(err)
 		}
-		return api.Response(v, v.Save(db))
+		return api2.Response(v, v.Save(db))
 	}
 
-	return api.NotImplemented()
+	return api2.NotImplemented()
 }
 
 func main() {

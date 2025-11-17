@@ -92,6 +92,9 @@ func key(s string) *string {
 	if strings.HasPrefix(s, "/") {
 		s = s[1:]
 	}
+	if strings.HasSuffix(s, ".html") || strings.HasSuffix(s, ".json") {
+		return &s
+	}
 	if !strings.HasSuffix(s, "/_.json") {
 		s += "/_.json"
 	}
@@ -100,15 +103,17 @@ func key(s string) *string {
 
 // New returns a new S3 service with the provided context.
 func New() Service {
-	ctx := context.Background()
-	cfg, _ := config.LoadDefaultConfig(ctx)
+	cfg, err := config.LoadDefaultConfig(context.Background())
+	if err != nil {
+		panic(err)
+	}
 	mode := os.Getenv("APP_MODE")
 	if mode == "" {
 		mode = "test"
 	}
 	return &client{
 		s3.NewFromConfig(cfg),
-		ctx,
+		context.Background(),
 		"bytelyon-db-" + mode,
 	}
 }

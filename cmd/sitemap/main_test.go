@@ -1,8 +1,8 @@
 package main
 
 import (
-	"bytelyon-functions/internal/api"
-	"bytelyon-functions/internal/model"
+	api2 "bytelyon-functions/pkg/api"
+	"bytelyon-functions/pkg/model"
 	"net/http"
 	"testing"
 
@@ -11,7 +11,7 @@ import (
 )
 
 func init() {
-	api.InitLogger()
+	api2.InitLogger()
 }
 
 func DemoUser() model.User {
@@ -20,8 +20,7 @@ func DemoUser() model.User {
 
 func Test_Handler(t *testing.T) {
 
-	req := api.
-		NewRequest().
+	req := api2.NewRequest().
 		WithUser(DemoUser()).
 		Get()
 
