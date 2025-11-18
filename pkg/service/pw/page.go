@@ -7,7 +7,6 @@ import (
 	"regexp"
 
 	"github.com/playwright-community/playwright-go"
-	"github.com/rs/zerolog/log"
 )
 
 var (
@@ -125,35 +124,12 @@ func (p *Page) Screenshot(path ...string) ([]byte, error) {
 }
 
 func (p *Page) HTML() (string, error) {
-
 	html, err := p.Content()
 	if err != nil {
 		return "", err
 	}
 
-	// remove ui elements
-	pruned := regexp.MustCompile(`(?is)<style\b[^>]*>(.*?)</style>`).ReplaceAllString(html, "")
-	pruned = regexp.MustCompile(`(?is)<svg\b[^>]*>(.*?)</svg>`).ReplaceAllString(pruned, "")
-	pruned = regexp.MustCompile(`(?is)<img\b[^>]*>`).ReplaceAllString(pruned, "")
-	//remove form elements
-	pruned = regexp.MustCompile(`(?is)<textarea\b[^>]*>(.*?)</textarea>`).ReplaceAllString(pruned, "")
-	pruned = regexp.MustCompile(`(?is)<input\b[^>]*>(.*?)</input>`).ReplaceAllString(pruned, "")
-	pruned = regexp.MustCompile(`(?is)<button\b[^>]*>`).ReplaceAllString(pruned, "")
-	// remove script elements
-	pruned = regexp.MustCompile(`(?is)<script\b[^>]*>(.*?)</script>`).ReplaceAllString(pruned, "")
-	pruned = regexp.MustCompile(`(?is)<noscript\b[^>]*>(.*?)</noscript>`).ReplaceAllString(pruned, "")
-	// remove link elements
-	pruned = regexp.MustCompile(`(?is)<link\b[^>]*>`).ReplaceAllString(pruned, "")
-	// remove empty elements
-	pruned = regexp.MustCompile(`(?is)<span\b[^>]*></span>`).ReplaceAllString(pruned, "")
-	pruned = regexp.MustCompile(`(?is)<div\b[^>]*></div>`).ReplaceAllString(pruned, "")
-
-	log.Trace().
-		Int("full", len(html)).
-		Int("pruned", len(pruned)).
-		Msg("HTML")
-
-	return pruned, nil
+	return html, nil
 }
 
 func (p *Page) Close() error {

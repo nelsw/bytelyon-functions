@@ -1,53 +1,46 @@
 package pw
 
 import (
-	"bytelyon-functions/pkg/service/s3"
 	"bytelyon-functions/pkg/util/ptr"
-	"encoding/json"
 
 	"github.com/playwright-community/playwright-go"
 )
 
 type Browser struct {
 	playwright.Browser
+	*playwright.Proxy
 }
 
-func (b *Browser) Search(query string) (string, []byte, error) {
+func (b *Browser) Search(query string) (html string, img []byte, err error) {
 
-	c, err := b.NewContext()
-	if err != nil {
-		return "", nil, err
+	var c *Context
+	if c, err = b.NewContext(); err != nil {
+		return
 	}
 	defer c.Close()
 
 	var p *Page
 	if p, err = c.NewPage(); err != nil {
-		return "", nil, err
+		return
 	} else if err = p.SearchGoogle(query); err != nil {
-		return "", nil, err
-	}
-
-	var html string
-	var img []byte
-	if html, err = p.HTML(); err != nil {
-		return "", nil, err
+		return
+	} else if html, err = p.HTML(); err != nil {
+		return
 	} else if img, err = p.Screenshot(); err != nil {
-		return "", nil, err
+		return
 	}
-
-	return html, img, nil
+	return
 }
 
 func (b *Browser) NewContext() (*Context, error) {
 
-	var storageState playwright.OptionalStorageState
-	if data, err := s3.New().Get("pw/storage-state/_.json"); err != nil {
-		return nil, err
-	} else if err = json.Unmarshal(data, &storageState); err != nil {
+	storageState, err := GetStorageState()
+	if err != nil {
 		return nil, err
 	}
 
-	ctx, err := b.Browser.NewContext(playwright.BrowserNewContextOptions{
+	var ctx playwright.BrowserContext
+	ctx, err = b.Browser.NewContext(playwright.BrowserNewContextOptions{
 		AcceptDownloads:   ptr.True(),
 		ColorScheme:       playwright.ColorSchemeDark,
 		ForcedColors:      playwright.ForcedColorsNone,
@@ -57,7 +50,7 @@ func (b *Browser) NewContext() (*Context, error) {
 		Locale:            ptr.Of("en-US"),
 		Permissions:       []string{"geolocation", "notifications"},
 		ReducedMotion:     playwright.ReducedMotionNoPreference,
-		StorageState:      &storageState,
+		StorageState:      storageState,
 		TimezoneId:        ptr.Of("America/New_York"),
 	})
 

@@ -15,6 +15,12 @@ func New() (Service, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	var proxy *playwright.Proxy
+	if proxy, err = NewProxy(); err != nil {
+		return nil, err
+	}
+
 	var b playwright.Browser
 	b, err = p.Chromium.Launch(playwright.BrowserTypeLaunchOptions{
 		Headless: ptr.True(),
@@ -49,9 +55,11 @@ func New() (Service, error) {
 		IgnoreDefaultArgs: []string{
 			"--enable-automation",
 		},
+		Proxy: proxy,
 	})
 	if err != nil {
 		return nil, err
 	}
-	return &Browser{b}, err
+
+	return &Browser{b, proxy}, nil
 }
