@@ -1,14 +1,11 @@
 package model
 
 import (
-	"bytelyon-functions/pkg/service/playwrighter"
 	"bytelyon-functions/pkg/service/s3"
 	"encoding/json"
 	"errors"
-	"fmt"
 
 	"github.com/oklog/ulid/v2"
-	"github.com/playwright-community/playwright-go"
 )
 
 type BotType int
@@ -51,7 +48,7 @@ func (b *Bot) Validate() error {
 		return nil
 	}
 
-	return errors.New("invalid bot type; must be one of: 1 (AdWords), 2 (Sitemap)")
+	return errors.New("invalid pw type; must be one of: 1 (AdWords), 2 (Sitemap)")
 }
 
 func (b *Bot) Path() string {
@@ -91,31 +88,6 @@ func (b *Bot) FindAll(db s3.Service) ([]Bot, error) {
 }
 
 func (b *Bot) Create(db s3.Service, body []byte) (*Bot, error) {
-
-	if err := json.Unmarshal(body, b); err != nil {
-		return nil, err
-	} else if err = b.Validate(); err != nil {
-		return nil, err
-	}
-
-	svc, err := playwrighter.New()
-	if err != nil {
-		return nil, err
-	}
-
-	var page playwright.Page
-	page, err = svc.Goto("https://www.google.com")
-	if err != nil {
-		return nil, err
-	} else {
-		fmt.Println(page)
-	}
-
-	if body, err = json.Marshal(b); err != nil {
-		return nil, err
-	} else if err = db.Put(b.Key(), body); err != nil {
-		return nil, err
-	}
 
 	return b, nil
 }
