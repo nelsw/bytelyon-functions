@@ -17,7 +17,7 @@ COPY bin/ bin/
 
 # Build the Go application
 RUN go build -o main ./lambda/scrape/main.go
-RUN go build -o playwrighter-install ./bin/playwrighter-install/main.go
+RUN go build -o pw-install ./bin/pw-install/main.go
 
 # Start from the Amazon Linux 2023 base image for deployment (make sure this base supports ARM64)
 FROM public.ecr.aws/lambda/provided:al2023
@@ -47,8 +47,8 @@ RUN dnf install -y \
 COPY --from=build /app/main ./main
 COPY --from=build /app/pwinstall ./pwinstall
 
-RUN chmod +x ./playwrighter-install
-RUN ./playwrighter-install
+RUN chmod +x ./pw-install
+RUN ./pw-install
 
 # Copy the Playwright installation cache
 RUN cp -r /root/.cache ./.cache

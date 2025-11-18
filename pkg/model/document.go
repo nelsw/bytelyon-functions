@@ -1,15 +1,19 @@
 package model
 
 import (
+	"bytelyon-functions/pkg/util/pretty"
 	"bytes"
+	"fmt"
 	"io"
 	"net/http"
+	"strings"
 
 	"golang.org/x/net/html"
 )
 
 type Document struct {
 	URL  URL
+	HTML HTML
 	Node *html.Node
 }
 
@@ -24,6 +28,13 @@ func NewDocument(url, body string) (*Document, error) {
 			return nil, err
 		}
 		defer res.Body.Close()
+
+		var b []byte
+		if b, err = io.ReadAll(closer); err != nil {
+			return nil, err
+		}
+		body = string(b)
+
 		closer = res.Body
 	}
 
@@ -32,7 +43,7 @@ func NewDocument(url, body string) (*Document, error) {
 		return nil, err
 	}
 
-	return &Document{MakeURL(url), node}, nil
+	return &Document{MakeURL(url), MakeHTML(body), node}, nil
 }
 
 func (d *Document) CollectURLs() (relative, remote []URL, err error) {
@@ -91,4 +102,63 @@ func (d *Document) CollectURLs() (relative, remote []URL, err error) {
 	fn(d.Node)
 
 	return
+}
+
+func (d *Document) SponsoredProducts() any {
+
+	m := map[string]any{}
+
+	var ƒ func(n *html.Node)
+
+	ƒ = func(n *html.Node) {
+
+		if n.Type == html.ElementNode && hasAttributeContains(n, "class", "top-pla-group-inner") {
+
+			fmt.Println("found top-pla-group-inner")
+			n = n.FirstChild
+			for {
+				domain := attributeVal(n, "data-dtld")
+				url := attributeVal(n.FirstChild.NextSibling.FirstChild, "href")
+				fmt.Println(domain, url)
+				if n.NextSibling != nil {
+					n = n.NextSibling
+				} else {
+					break
+				}
+			}
+
+			return
+		}
+
+		// continue traversing every sibling per child. give em noogies.
+		for c := n.FirstChild; c != nil; c = c.NextSibling {
+			ƒ(c)
+		}
+	}
+
+	ƒ(d.Node)
+	pretty.Println(m)
+	return m
+}
+
+func (d *Document) SponsoredProduct() any {
+	return nil
+}
+
+func attributeVal(n *html.Node, key string) string {
+	for _, a := range n.Attr {
+		if a.Key == key {
+			return a.Val
+		}
+	}
+	return ""
+}
+
+func hasAttributeContains(n *html.Node, key, val string) bool {
+	for _, a := range n.Attr {
+		if a.Key == key && strings.Contains(a.Val, val) {
+			return true
+		}
+	}
+	return false
 }

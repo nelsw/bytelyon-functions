@@ -22,7 +22,16 @@ type SERP struct {
 	// HTML is the page content
 	HTML string `json:"html"`
 	// Results is a slice of SERP results
-	Results []SERPResult `json:"results"`
+	Results   []SERPResult `json:"results"`
+	FollowAds []string     `json:"follow_ads"`
+	SkipAds   []string     `json:"skip_ads"`
+}
+
+func NewSerp(q string) *SERP {
+	return &SERP{
+		ID:    NewUlid(),
+		Query: q,
+	}
 }
 
 type SERPResult struct {
