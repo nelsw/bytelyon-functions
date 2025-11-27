@@ -10,10 +10,9 @@ import (
 )
 
 func Handler(req api.Request) (events.APIGatewayV2HTTPResponse, error) {
-
 	req.Log()
 
-	v := model.NewNews(req.User())
+	v := model.NewPlunder(req.User())
 
 	switch req.Method() {
 	case http.MethodDelete:

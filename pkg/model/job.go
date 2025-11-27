@@ -20,10 +20,11 @@ const (
 	NewsJobType    JobType = "news"
 	SearchJobType  JobType = "search"
 	SitemapJobType JobType = "sitemap"
+	PlunderJobType JobType = "plunder"
 )
 
 var (
-	validJobTypes = regexp.MustCompile(`^(news|search|sitemap)$`)
+	validJobTypes = regexp.MustCompile(`^(news|search|sitemap|plunder)$`)
 )
 
 type Job struct {
@@ -72,6 +73,8 @@ func (j *Job) Save(b []byte) (*Job, error) {
 	} else if w := v.Worker(); w == nil {
 		return nil, errors.New("invalid worker id/type combination")
 	}
+
+	// todo - validate the worker exists
 
 	// load existing results
 	if f, err := v.Find(); err == nil {
@@ -130,6 +133,8 @@ func (j *Job) Worker() Worker {
 	switch j.Type {
 	case NewsJobType:
 		return NewNews(j.User, j.ID)
+	case PlunderJobType:
+		return NewPlunder(j.User, j.ID)
 	case SitemapJobType:
 		log.Warn().Msg("sitemap worker not yet implemented")
 	case SearchJobType:

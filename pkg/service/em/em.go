@@ -73,8 +73,6 @@ func Keys(e Entity, r ...*regexp.Regexp) ([]string, error) {
 		after = arr[len(arr)-1]
 	}
 
-	log.Info().Int("count", len(keys)).Msg("Keys found")
-
 	return keys, nil
 }
 

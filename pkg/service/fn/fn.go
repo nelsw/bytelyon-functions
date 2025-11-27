@@ -49,8 +49,8 @@ func (c *Client) invoke(name string, a any, t types.InvocationType) ([]byte, err
 	return out.Payload, nil
 }
 
-func New(ctx context.Context) Service {
-	ctx = context.Background()
+func New() Service {
+	ctx := context.Background()
 	cfg, _ := config.LoadDefaultConfig(ctx)
 	return &Client{lambda.NewFromConfig(cfg), ctx}
 }

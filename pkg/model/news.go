@@ -39,6 +39,11 @@ func (n *News) Create(b []byte) (*News, error) {
 		log.Err(err).Msg("failed to unmarshal news")
 		return nil, err
 	}
+
+	if v.Keywords == nil || len(v.Keywords) == 0 {
+		return nil, errors.New("missing keywords")
+	}
+
 	v.User = n.User
 	v.ID = NewUlid()
 
@@ -51,7 +56,10 @@ func (n *News) Create(b []byte) (*News, error) {
 }
 
 func (n *News) Find() error {
-	return em.Find(n)
+	var u *User
+	err := em.Find(n)
+	n.User = u
+	return err
 }
 
 func (n *News) Delete() error {
@@ -60,9 +68,11 @@ func (n *News) Delete() error {
 		return err
 	}
 
-	j, err := n.job()
+	// delete the associated job
+	j, err := NewJob(n.User, n.ID).Find()
 	if err != nil {
-		return err
+		log.Warn().Err(err).Msg("failed to find job, it may not exist or have been deleted")
+		return nil
 	}
 
 	return em.Delete(j)
@@ -84,7 +94,16 @@ func (n *News) FindAll() ([]*News, error) {
 
 func (n *News) Work() {
 
-	var errs error
+	if err := n.Find(); err != nil {
+		log.Err(err).Msg("failed to find news")
+		return
+	}
+
+	job, err := NewJob(n.User, n.ID).Find()
+	if err != nil {
+		log.Err(err).Msg("failed to find job")
+		return
+	}
 
 	q := strings.Join(n.Keywords, "+")
 	urls := []string{
@@ -99,7 +118,6 @@ func (n *News) Work() {
 		rss, err := NewRSS(u)
 		if err != nil {
 			log.Warn().Err(err).Msg("failed to parse rss feed")
-			errs = errors.Join(errs, err)
 			continue
 		}
 		if rss.Channel.Items != nil && len(rss.Channel.Items) > 0 {
@@ -107,46 +125,31 @@ func (n *News) Work() {
 		}
 	}
 
-	var article Article
-	if err := article.FindLast(); err != nil {
-		log.Err(err).Msg("failed to find last article, must return")
-		errs = errors.Join(errs, err)
-		return
+	var after int64
+	if n.Articles != nil && len(n.Articles) > 0 {
+		after = n.Articles[0].Time
 	}
 
 	for _, i := range items {
-		if i.Time.UnixMilli() > article.Time {
-			i.Scrub()
-			if err := em.Save(&Article{
-				News:   n,
-				URL:    i.URL,
-				Title:  i.Title,
-				Source: i.Source.Value,
-				Time:   i.Time.UnixMilli(),
-			}); err != nil {
-				errs = errors.Join(errs, err)
-			}
+		if i.Time.UnixMilli() < after {
+			continue
+		}
+		i.Scrub()
+		if err = em.Save(&Article{
+			News:   n,
+			URL:    i.URL,
+			Title:  i.Title,
+			Source: i.Source.Value,
+			Time:   i.Time.UnixMilli(),
+		}); err != nil {
+			log.Err(err).Msg("failed to save article")
 		}
 	}
 
-	job, err := n.job()
-	if err != nil {
-		return
+	job.Results[time.Now().UTC().UnixMilli()] = len(items)
+	if err = em.Save(job); err != nil {
+		log.Err(err).Msg("failed to save job")
 	}
-
-	job.Results[time.Now().UTC().UnixMilli()] = errs
-	em.Save(job)
-
-	return
-}
-
-func (n *News) job() (*Job, error) {
-	job, err := NewJob(n.User, n.ID).Find()
-	if err != nil {
-		log.Warn().Err(err).Msg("failed to find job")
-		return nil, err
-	}
-	return job, nil
 }
 
 func NewNews(args ...any) *News {
