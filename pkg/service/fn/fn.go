@@ -20,7 +20,7 @@ type Client struct {
 }
 
 func (c *Client) Request(name string, a any) ([]byte, error) {
-	return c.invoke(name, a, types.InvocationTypeEvent)
+	return c.invoke(name, a, types.InvocationTypeRequestResponse)
 }
 
 func (c *Client) Event(name string, a any) error {

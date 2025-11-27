@@ -70,7 +70,7 @@ func (p *Plunder) Create(b []byte) (*Plunder, error) {
 
 	var v Plunder
 	if err := json.Unmarshal(b, &v); err != nil {
-		log.Err(err).Msg("failed to unmarshal p")
+		log.Err(err).Msg("failed to unmarshal plunder")
 		return nil, err
 	}
 
@@ -82,7 +82,7 @@ func (p *Plunder) Create(b []byte) (*Plunder, error) {
 	v.ID = NewUlid()
 
 	if err := em.Save(&v); err != nil {
-		log.Err(err).Msg("failed to save p")
+		log.Err(err).Msg("failed to save plunder")
 		return nil, err
 	}
 
@@ -126,14 +126,7 @@ func (p *Plunder) Work() {
 		return
 	}
 
-	job, err := NewJob(p.User, p.ID).Find()
-	if err != nil {
-		log.Err(err).Msg("failed to find job")
-		return
-	}
-
-	var out []byte
-	out, err = fn.New().Request("bytelyon-function-playwrighter", map[string]any{
+	out, err := fn.New().Request("bytelyon-playwrighter", map[string]any{
 		"dir":    p.Dir() + "/loot/" + NewUlid().String() + "/",
 		"target": p.Target,
 		"follow": p.Follow,
@@ -144,6 +137,14 @@ func (p *Plunder) Work() {
 		result = err.Error()
 	} else {
 		result = string(out)
+	}
+
+	log.Info().Str("result", result).Msg("plunder")
+
+	var job *Job
+	if job, err = NewJob(p.User, p.ID).Find(); err != nil {
+		log.Warn().Err(err).Msg("failed to find job")
+		return
 	}
 
 	job.Results[time.Now().UTC().UnixMilli()] = result

@@ -99,12 +99,6 @@ func (n *News) Work() {
 		return
 	}
 
-	job, err := NewJob(n.User, n.ID).Find()
-	if err != nil {
-		log.Err(err).Msg("failed to find job")
-		return
-	}
-
 	q := strings.Join(n.Keywords, "+")
 	urls := []string{
 		fmt.Sprintf("https://news.google.com/rss/search?q=%s&hl=en-US&gl=US&ceid=US:en", q),
@@ -135,7 +129,7 @@ func (n *News) Work() {
 			continue
 		}
 		i.Scrub()
-		if err = em.Save(&Article{
+		if err := em.Save(&Article{
 			News:   n,
 			URL:    i.URL,
 			Title:  i.Title,
@@ -144,6 +138,12 @@ func (n *News) Work() {
 		}); err != nil {
 			log.Err(err).Msg("failed to save article")
 		}
+	}
+
+	job, err := NewJob(n.User, n.ID).Find()
+	if err != nil {
+		log.Warn().Err(err).Msg("failed to find job")
+		return
 	}
 
 	job.Results[time.Now().UTC().UnixMilli()] = len(items)

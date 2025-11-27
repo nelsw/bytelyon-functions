@@ -63,7 +63,7 @@ func (j *Job) Save(b []byte) (*Job, error) {
 	v.User = j.User
 
 	if !validJobTypes.MatchString(string(v.Type)) {
-		return nil, errors.New("invalid job type, must be one of: news, search, sitemap")
+		return nil, errors.New("invalid job type, must be one of: news, search, sitemap, plunder")
 	} else if v.Freq == nil {
 		return nil, errors.New("missing frequency")
 	} else if err := v.Freq.Validate(); err != nil {

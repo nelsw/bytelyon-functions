@@ -1,31 +1,29 @@
 package model
 
 import (
+	"encoding/json"
 	"testing"
 
 	"github.com/brianvoe/gofakeit/v7"
 	"github.com/stretchr/testify/assert"
 )
 
-func TestProfile_Save(t *testing.T) {
+func TestProfile_Save_And_Find(t *testing.T) {
+
 	user := MakeDemoUser()
-	oldProfile := NewProfile(&user)
-	newProfile := Profile{Name: gofakeit.Name()}
+	expectedName := gofakeit.Name()
 
-	assert.NoError(t, oldProfile.Hydrate(newProfile))
-	assert.NoError(t, oldProfile.Validate())
-	assert.NoError(t, oldProfile.Save())
-	assert.Equal(t, oldProfile.Name, newProfile.Name)
-}
+	transient := NewProfile(&user)
+	transient.Name = expectedName
+	b, _ := json.Marshal(&transient)
+	persisted, err := transient.Create(b)
 
-func TestProfile_Find(t *testing.T) {
-	user := MakeDemoUser()
-	oldProfile := NewProfile(&user)
-	newProfile := Profile{Name: gofakeit.Name()}
+	assert.NoError(t, err)
+	assert.Equal(t, expectedName, persisted.Name)
 
-	assert.NoError(t, oldProfile.Hydrate(newProfile))
-	assert.NoError(t, oldProfile.Validate())
-	assert.NoError(t, oldProfile.Save())
-	assert.NoError(t, oldProfile.Find())
-	assert.Equal(t, oldProfile.Name, newProfile.Name)
+	findProxy := NewProfile(&user)
+	_, err = findProxy.Find()
+
+	assert.NoError(t, err)
+	assert.Equal(t, expectedName, findProxy.Name)
 }

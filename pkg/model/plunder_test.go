@@ -1,6 +1,7 @@
 package model
 
 import (
+	"encoding/json"
 	"testing"
 
 	"github.com/oklog/ulid/v2"
@@ -28,4 +29,15 @@ func TestPlunder_FindAll(t *testing.T) {
 	for _, v := range arr {
 		log.Debug().EmbedObject(v).Send()
 	}
+}
+
+func TestPlunder_Work(t *testing.T) {
+	user := MakeDemoUser()
+	b, _ := json.Marshal(map[string]any{
+		"target": "ev fire blankets",
+		"follow": []string{"li-fire.com"},
+	})
+	p, err := NewPlunder(&user).Create(b)
+	assert.NoError(t, err)
+	p.Work()
 }

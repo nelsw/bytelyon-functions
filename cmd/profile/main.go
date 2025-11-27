@@ -3,18 +3,11 @@ package main
 import (
 	"bytelyon-functions/pkg/api"
 	"bytelyon-functions/pkg/model"
-	"bytelyon-functions/pkg/service/s3"
 	"net/http"
 
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
 )
-
-var db s3.Service
-
-func init() {
-	db = s3.New()
-}
 
 func Handler(req api.Request) (events.APIGatewayV2HTTPResponse, error) {
 
@@ -24,14 +17,9 @@ func Handler(req api.Request) (events.APIGatewayV2HTTPResponse, error) {
 
 	switch req.Method() {
 	case http.MethodGet:
-		return api.Response(v, v.Find(db))
+		return api.Response(v.Find())
 	case http.MethodPut:
-		if err := v.Hydrate(req.Body); err != nil {
-			return api.BadRequest(err)
-		} else if err = v.Validate(); err != nil {
-			return api.BadRequest(err)
-		}
-		return api.Response(v, v.Save(db))
+		return api.Response(v.Create([]byte(req.Body)))
 	}
 
 	return api.NotImplemented()
