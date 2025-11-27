@@ -13,16 +13,15 @@ func Handler(req api.Request) (events.APIGatewayV2HTTPResponse, error) {
 
 	req.Log()
 
-	v, err := model.NewSitemap(req.User(), req.Param("url"))
-	if err != nil {
-		return api.BadRequest(err)
-	}
+	v := model.NewNews(req.User())
 
 	switch req.Method() {
+	case http.MethodDelete:
+		return api.Response(nil, v.Delete())
 	case http.MethodPost:
-		return api.Response(v.Create())
+		return api.Response(v.Create([]byte(req.Body)))
 	case http.MethodGet:
-		api.NotImplemented()
+		return api.Response(v.FindAll())
 	}
 
 	return api.NotImplemented()

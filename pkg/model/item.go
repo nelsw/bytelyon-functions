@@ -12,10 +12,10 @@ import (
 	"strings"
 
 	"github.com/oklog/ulid/v2"
+	"github.com/rs/zerolog/log"
 	"golang.org/x/net/html"
 )
 
-type Items []Item
 type Item struct {
 	ID     ulid.ULID `json:"id" xml:"-"`
 	URL    string    `json:"link" xml:"link"`
@@ -153,14 +153,23 @@ func decodeGoogleNewsURLParts(signature, timestamp, base64Str string) (string, e
 }
 
 func (i *Item) Scrub() {
+
 	i.ID = i.Time.ULID()
-	var s string
+
 	if strings.HasPrefix(i.URL, "https://news.google.com/") {
-		s, _ = decodeGoogleNewsURL(i.URL)
-	} else if strings.HasPrefix(i.URL, "http://www.bing.com/news/") {
-		s, _ = decodeBingNewsURL(i.URL)
+		if s, err := decodeGoogleNewsURL(i.URL); err != nil {
+			log.Warn().Err(err).Msg("failed to decode google news url")
+		} else {
+			i.URL = s
+		}
+		return
 	}
-	if s != "" {
-		i.URL = s
+
+	if strings.HasPrefix(i.URL, "http://www.bing.com/") {
+		if s, err := decodeBingNewsURL(i.URL); err != nil {
+			log.Warn().Err(err).Msg("failed to decode bing news url")
+		} else {
+			i.URL = s
+		}
 	}
 }

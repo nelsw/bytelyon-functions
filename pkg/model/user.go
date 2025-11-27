@@ -1,9 +1,16 @@
 package model
 
 import (
+	"bytelyon-functions/pkg/service/em"
 	"bytelyon-functions/pkg/service/s3"
+	"regexp"
 
 	"github.com/oklog/ulid/v2"
+	"github.com/rs/zerolog/log"
+)
+
+var (
+	userKeyRegex = regexp.MustCompile(`.*user/([A-Za-z0-9]{26}/_.json)$`)
 )
 
 type User struct {
@@ -15,11 +22,15 @@ func MakeDemoUser() User {
 }
 
 func (u *User) Path() string {
-	return "user/" + u.ID.String()
+	return "user/"
+}
+
+func (u *User) Dir() string {
+	return u.Path() + u.ID.String()
 }
 
 func (u *User) Key() string {
-	return u.Path() + "/_.json"
+	return u.Dir() + "/_.json"
 }
 
 func FindUser(s string) (*User, error) {
@@ -45,4 +56,13 @@ func FindUser(s string) (*User, error) {
 	}
 
 	return e.User(), nil
+}
+
+func FindAllUsers() ([]*User, error) {
+	users, err := em.FindAll(&User{}, userKeyRegex)
+	if err != nil {
+		log.Err(err).Msg("failed to find users")
+		return []*User{}, err
+	}
+	return users, nil
 }

@@ -22,7 +22,7 @@ type Sitemap struct {
 }
 
 func (s *Sitemap) Path() string {
-	return s.User.Path() + "/sitemap"
+	return s.User.Dir() + "/sitemap"
 }
 
 func (s *Sitemap) Key() string {

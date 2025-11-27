@@ -9,24 +9,19 @@ import (
 	"github.com/aws/aws-lambda-go/lambda"
 )
 
-func Handler(req api.Request) (events.APIGatewayV2HTTPResponse, error) {
+func Handler(r api.Request) (events.APIGatewayV2HTTPResponse, error) {
+	r.Log()
 
-	req.Log()
+	v := model.NewArticle(r.User(), r.Param("news"), r.Param("id"))
 
-	if req.Method() == http.MethodOptions {
-		return api.OK()
-	}
-
-	v := model.NewJob(req.User())
-
-	switch req.Method() {
+	switch r.Method() {
 	case http.MethodDelete:
 		return api.Response(nil, v.Delete())
-	case http.MethodPost:
-	case http.MethodPut:
-		return api.Response(v.Save([]byte(req.Body)))
 	case http.MethodGet:
-		return api.Response(v.FindAll())
+		if v.ID.IsZero() {
+			return api.Response(v.FindAll())
+		}
+		return api.Response(v, v.Find())
 	}
 
 	return api.NotImplemented()

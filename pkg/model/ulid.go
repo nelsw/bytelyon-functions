@@ -8,7 +8,7 @@ import (
 )
 
 func NewUlid() ulid.ULID {
-	return newUlid(time.Now())
+	return newUlid(time.Now().UTC())
 }
 
 func NewUlidFromTime(t time.Time) ulid.ULID {
@@ -17,7 +17,7 @@ func NewUlidFromTime(t time.Time) ulid.ULID {
 
 func newUlid(t time.Time) ulid.ULID {
 	entropy := rand.New(rand.NewSource(t.UnixNano()))
-	ms := ulid.Timestamp(time.Now())
+	ms := ulid.Timestamp(t)
 	u, err := ulid.New(ms, entropy)
 	if err != nil {
 		u = ulid.Make()

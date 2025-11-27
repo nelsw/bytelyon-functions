@@ -17,7 +17,7 @@ func NewProfile(u *User) *Profile {
 }
 
 func (p *Profile) Path() string {
-	return p.User.Path() + "/profile"
+	return p.User.Dir() + "/profile"
 }
 
 func (p *Profile) Key() string {
