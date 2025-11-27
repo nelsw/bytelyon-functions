@@ -5,6 +5,7 @@ go 1.25
 require (
 	github.com/aws/aws-lambda-go v1.50.0
 	github.com/aws/aws-sdk-go-v2/config v1.32.2
+	github.com/aws/aws-sdk-go-v2/service/lambda v1.83.1
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.92.1
 	github.com/brianvoe/gofakeit/v7 v7.11.0
 	github.com/golang-jwt/jwt/v5 v5.3.0
