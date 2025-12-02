@@ -54,7 +54,7 @@ func (p *Password) Compare(b []byte) error {
 }
 
 func (p *Password) Path() string {
-	return p.User.Path() + "/pork"
+	return p.User.Dir() + "/pork"
 }
 
 func (p *Password) Key() string {

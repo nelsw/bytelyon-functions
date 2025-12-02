@@ -31,5 +31,5 @@ func InitLogger() {
 			}
 			return color + level + "\033[0m" // Reset color after level
 		},
-	})
+	}).With().Caller().Logger()
 }

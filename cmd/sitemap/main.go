@@ -1,7 +1,7 @@
 package main
 
 import (
-	api2 "bytelyon-functions/pkg/api"
+	"bytelyon-functions/pkg/api"
 	"bytelyon-functions/pkg/model"
 	"net/http"
 
@@ -9,29 +9,29 @@ import (
 	"github.com/aws/aws-lambda-go/lambda"
 )
 
-func Handler(req api2.Request) (events.APIGatewayV2HTTPResponse, error) {
+func Handler(req api.Request) (events.APIGatewayV2HTTPResponse, error) {
 
 	req.Log()
 
 	if req.Method() == http.MethodOptions {
-		return api2.OK()
+		return api.OK()
 	}
 
 	v, err := model.NewSitemap(req.User(), req.Param("url"))
 	if err != nil {
-		return api2.BadRequest(err)
+		return api.BadRequest(err)
 	}
 
 	switch req.Method() {
 	case http.MethodGet:
-		return api2.Response(v.FindAll())
+		return api.Response(v.FindAll())
 	case http.MethodPost:
-		return api2.Response(v.Create())
+		return api.Response(v.Create())
 	case http.MethodDelete:
-		return api2.Response(v.Delete())
+		return api.Response(v.Delete())
 	}
 
-	return api2.NotImplemented()
+	return api.NotImplemented()
 }
 
 func main() {

@@ -1,190 +1,147 @@
 package model
 
 import (
-	"bytelyon-functions/pkg/service/s3"
+	"bytelyon-functions/pkg/service/em"
 	"encoding/json"
 	"errors"
-	"fmt"
-	"net/url"
+	"maps"
+	"regexp"
+	"slices"
+	"sort"
 	"time"
 
 	"github.com/oklog/ulid/v2"
+	"github.com/rs/zerolog/log"
 )
 
-type JobType int
+type JobType string
 
 const (
-	NewsJobType JobType = iota + 1
-	SitemapJobType
+	NewsJobType    JobType = "news"
+	SearchJobType  JobType = "search"
+	SitemapJobType JobType = "sitemap"
+	PlunderJobType JobType = "plunder"
 )
 
-var JobTypes = map[JobType]string{
-	NewsJobType:    "news",
-	SitemapJobType: "sitemap",
-}
+var (
+	validJobTypes = regexp.MustCompile(`^(news|search|sitemap|plunder)$`)
+)
 
-type Jobs []Job
 type Job struct {
-	User      *User     `json:"-"`
-	ID        ulid.ULID `json:"id"`
-	WorkedAt  time.Time `json:"worked_at"`
-	Type      JobType   `json:"type"`
-	Frequency Frequency `json:"frequency"`
-	Name      string    `json:"name"`
-	Desc      string    `json:"description"`
-	URLs      []string  `json:"urls"`
-	Keywords  []string  `json:"keywords"`
-	Items     Items     `json:"items"`
+	User    *User         `json:"-"`
+	ID      ulid.ULID     `json:"id"`
+	Type    JobType       `json:"type"`
+	Freq    *Frequency    `json:"frequency"`
+	Results map[int64]any `json:"results"`
 }
 
-func NewJob(user *User, id string, body []byte) (*Job, error) {
-
-	var j Job
-	_ = json.Unmarshal(body, &j)
-
-	j.User = user
-	if !j.ID.IsZero() {
-		return &j, nil
+func NewJob(user *User, id ...ulid.ULID) *Job {
+	if len(id) > 0 {
+		return &Job{User: user, ID: id[0]}
 	}
-
-	ID, err := ulid.Parse(id)
-	if err != nil {
-		return nil, err
-	}
-
-	j.ID = ID
-
-	return &j, err
-}
-
-func (j *Job) Validate() (err error) {
-
-	if _, ok := JobTypes[j.Type]; !ok {
-		err = errors.Join(fmt.Errorf("job type must be set"))
-	}
-	if j.Type == SitemapJobType && len(j.URLs) == 0 {
-		err = errors.Join(fmt.Errorf("job url must be set"))
-	}
-	if len(j.Keywords) == 0 {
-		err = errors.Join(fmt.Errorf("job keywords must be set"))
-	}
-	if _, ok := FrequencyUnits[j.Frequency.Unit]; !ok {
-		err = errors.Join(fmt.Errorf("job frequency must be one of: [m, h, d]"))
-	}
-	return
+	return &Job{User: user}
 }
 
 func (j *Job) Path() string {
-	return j.User.Path() + "/job"
+	return j.User.Dir() + "/job"
+}
+
+func (j *Job) Dir() string {
+	return j.Path() + "/" + j.ID.String()
 }
 
 func (j *Job) Key() string {
-	return j.Path() + "/" + j.ID.String() + "/_.json"
+	return j.Dir() + "/_.json"
 }
 
-func (j *Job) Create() (*Job, error) {
-	j.ID = NewUlid()
-	return j.save(true)
+func (j *Job) Save(b []byte) (*Job, error) {
+
+	var v Job
+	if err := json.Unmarshal(b, &v); err != nil {
+		return nil, err
+	}
+	v.User = j.User
+
+	if !validJobTypes.MatchString(string(v.Type)) {
+		return nil, errors.New("invalid job type, must be one of: news, search, sitemap, plunder")
+	} else if v.Freq == nil {
+		return nil, errors.New("missing frequency")
+	} else if err := v.Freq.Validate(); err != nil {
+		return nil, err
+	} else if v.ID.IsZero() {
+		return nil, errors.New("missing job id")
+	} else if w := v.Worker(); w == nil {
+		return nil, errors.New("invalid worker id/type combination")
+	}
+
+	// todo - validate the worker exists
+
+	// load existing results
+	if f, err := v.Find(); err == nil {
+		v.Results = f.Results
+	}
+
+	if err := em.Save(&v); err != nil {
+		return nil, err
+	}
+	v.User = j.User
+	return &v, nil
 }
 
-func (j *Job) Update() (*Job, error) {
-	return j.save(false)
+func (j *Job) Delete() error {
+	return em.Delete(j)
 }
 
-func (j *Job) Delete() (any, error) {
-	return nil, s3.New().Delete(j.Key())
-}
-
-func (j *Job) FindAll() (Jobs, error) {
-	db := s3.New()
-
-	keys, err := db.Keys(j.Path(), "", 1000)
+func (j *Job) FindAll() ([]*Job, error) {
+	jobs, err := em.FindAll(j, regexp.MustCompile(`.*/job/([A-Za-z0-9]{26}/_.json)$`))
 	if err != nil {
-		return nil, err
+		log.Warn().Err(err).Msg("failed to find jobs")
+		return []*Job{}, err
 	}
-
-	var vv Jobs
-
-	for _, k := range keys {
-
-		o, e := db.Get(k)
-		if e != nil {
-			err = errors.Join(err, e)
-			continue
-		}
-
-		var v Job
-		if e = json.Unmarshal(o, &v); e != nil {
-			err = errors.Join(err, e)
-			continue
-		}
-
-		vv = append(vv, v)
+	for i, v := range jobs {
+		v.User = j.User
+		jobs[i] = v
 	}
-
-	return vv, err
+	return jobs, nil
 }
 
-func (j *Job) save(run bool) (*Job, error) {
+func (j *Job) Find() (*Job, error) {
 
-	if err := j.Validate(); err != nil {
+	v := NewJob(j.User, j.ID)
+	if err := em.Find(v); err != nil {
 		return nil, err
 	}
 
-	if j.Type == NewsJobType {
-		var keywordQuery string
-		for i, keyword := range j.Keywords {
-			if i > 0 {
-				keywordQuery += "+"
-			}
-			keywordQuery += url.QueryEscape(keyword)
-		}
-		j.URLs = []string{
-			fmt.Sprintf("https://news.google.com/rss/search?q=%s&hl=en-US&gl=US&ceid=US:en", keywordQuery),
-			fmt.Sprintf("https://www.bing.com/news/search?format=rss&q=%s", keywordQuery),
-			fmt.Sprintf("https://www.bing.com/search?format=rss&q=%s", keywordQuery),
-		}
-	}
+	v.User = j.User
 
-	if run {
-
-		if j.Type == NewsJobType {
-			j.doNewsWork()
-			j.WorkedAt = time.Now().UTC()
-		}
-	}
-
-	if b, err := json.Marshal(j); err != nil {
-		return nil, err
-	} else if err = s3.New().Put(j.Key(), b); err != nil {
-		return nil, err
-	}
-
-	return j, nil
+	return v, nil
 }
 
-func (j *Job) doNewsWork() (err error) {
+func (j *Job) Ready() bool {
+	if len(j.Results) == 0 {
+		return true
+	}
+	keys := slices.Collect(maps.Keys(j.Results))
+	sort.Slice(keys, func(i, j int) bool {
+		return keys[i] > keys[j]
+	})
+	return time.UnixMilli(keys[0]).Add(j.Freq.Duration()).After(time.Now().UTC())
+}
 
-	var items Items
+func (j *Job) Worker() Worker {
 
-	for _, u := range j.URLs {
-
-		rss, e := NewRSS(u)
-		if e != nil {
-			err = errors.Join(err, e)
-		}
-
-		if rss.Channel.Items == nil {
-			continue
-		}
-
-		for _, i := range rss.Channel.Items {
-			i.Scrub()
-			items = append(items, i)
-		}
+	switch j.Type {
+	case NewsJobType:
+		return NewNews(j.User, j.ID)
+	case PlunderJobType:
+		return NewPlunder(j.User, j.ID)
+	case SitemapJobType:
+		log.Warn().Msg("sitemap worker not yet implemented")
+	case SearchJobType:
+		log.Warn().Msg("search worker not yet implemented")
+	default:
+		log.Warn().Msgf("invalid job type: %s", j.Type)
 	}
 
-	j.Items = append(items, j.Items...)
-
-	return
+	return nil
 }

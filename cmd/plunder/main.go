@@ -10,16 +10,20 @@ import (
 )
 
 func Handler(req api.Request) (events.APIGatewayV2HTTPResponse, error) {
-
 	req.Log()
 
-	v := model.NewProfile(req.User())
+	v := model.NewPlunder(req.User())
 
 	switch req.Method() {
-	case http.MethodGet:
-		return api.Response(v.Find())
-	case http.MethodPut:
+	case http.MethodDelete:
+		return api.Response(nil, v.Delete())
+	case http.MethodPost:
 		return api.Response(v.Create([]byte(req.Body)))
+	case http.MethodGet:
+		return api.Response(v.FindAll())
+	case http.MethodPatch:
+		v.Work()
+		return api.OK()
 	}
 
 	return api.NotImplemented()

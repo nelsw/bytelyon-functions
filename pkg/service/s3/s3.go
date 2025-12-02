@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
@@ -16,12 +17,14 @@ type Service interface {
 	Delete(string) error
 	Find(string, any) error
 	Get(string) ([]byte, error)
+	GetPresigned(string) (string, error)
 	Put(string, []byte) error
 	Keys(string, string, int) ([]string, error)
 }
 
 type client struct {
 	*s3.Client
+	*s3.PresignClient
 	ctx    context.Context
 	bucket string
 }
@@ -88,6 +91,17 @@ func (c *client) Keys(prefix, after string, size int) (keys []string, err error)
 	return
 }
 
+func (c *client) GetPresigned(k string) (string, error) {
+	out, err := c.PresignGetObject(c.ctx, &s3.GetObjectInput{
+		Bucket: &c.bucket,
+		Key:    &k,
+	}, s3.WithPresignExpires(time.Duration(30*int64(time.Minute))))
+	if err != nil {
+		return "", err
+	}
+	return out.URL, nil
+}
+
 func key(s string) *string {
 	if strings.HasPrefix(s, "/") {
 		s = s[1:]
@@ -111,8 +125,10 @@ func New() Service {
 	if mode == "" {
 		mode = "test"
 	}
+	c := s3.NewFromConfig(cfg)
 	return &client{
-		s3.NewFromConfig(cfg),
+		c,
+		s3.NewPresignClient(c),
 		context.Background(),
 		"bytelyon-db-" + mode,
 	}

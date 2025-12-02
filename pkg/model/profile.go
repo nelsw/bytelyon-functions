@@ -1,10 +1,12 @@
 package model
 
 import (
+	"bytelyon-functions/pkg/service/em"
 	"bytelyon-functions/pkg/service/s3"
 	"encoding/json"
 	"errors"
-	"fmt"
+
+	"github.com/rs/zerolog/log"
 )
 
 type Profile struct {
@@ -12,44 +14,33 @@ type Profile struct {
 	Name string `json:"name"`
 }
 
-func NewProfile(u *User) *Profile {
-	return &Profile{User: u}
+func (p *Profile) Path() string {
+	return p.User.Dir() + "/profile"
 }
 
-func (p *Profile) Path() string {
-	return p.User.Path() + "/profile"
+func (p *Profile) Dir() string {
+	return p.Path()
 }
 
 func (p *Profile) Key() string {
-	return p.Path() + "/_.json"
+	return p.Dir() + "/_.json"
 }
 
-func (p *Profile) Validate() error {
-	if p.Name == "" {
-		return errors.New("name cannot be empty")
+func (p *Profile) Create(b []byte) (*Profile, error) {
+	var v Profile
+	if err := json.Unmarshal(b, &v); err != nil {
+		log.Err(err).Msg("failed to unmarshal profile")
+		return nil, err
 	}
-	return nil
-}
-
-func (p *Profile) Hydrate(a any) error {
-
-	switch t := a.(type) {
-	case Profile:
-		u := p.User
-		*p = t
-		p.User = u
-	case []byte:
-		if err := json.Unmarshal(t, p); err != nil {
-			return err
-		}
-	case string:
-		if err := json.Unmarshal([]byte(t), p); err != nil {
-			return err
-		}
-	default:
-		return errors.New(fmt.Sprintf("unexpected type [%v]", t))
+	if v.Name == "" {
+		return nil, errors.New("name cannot be empty")
 	}
-	return nil
+	v.User = p.User
+	if err := em.Save(&v); err != nil {
+		log.Err(err).Msg("failed to save profile")
+		return nil, err
+	}
+	return &v, nil
 }
 
 func (p *Profile) Save(dbs ...s3.Service) error {
@@ -70,12 +61,15 @@ func (p *Profile) Save(dbs ...s3.Service) error {
 	return nil
 }
 
-func (p *Profile) Find(dbs ...s3.Service) error {
-	var db s3.Service
-	if len(dbs) > 0 {
-		db = dbs[0]
-	} else {
-		db = s3.New()
+func (p *Profile) Find() (*Profile, error) {
+	user := p.User
+	if err := em.Find(p); err != nil {
+		return nil, err
 	}
-	return db.Find(p.Key(), p)
+	p.User = user
+	return p, nil
+}
+
+func NewProfile(u *User) *Profile {
+	return &Profile{User: u}
 }

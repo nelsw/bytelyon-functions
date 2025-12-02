@@ -24,11 +24,20 @@ func NewRequest() *Request {
 }
 
 func (r *Request) Log(s ...string) *Request {
+
 	msgPrefix := "API"
 	if len(s) > 0 {
 		msgPrefix = s[0]
 	}
-	log.Info().Any(msgPrefix+" Request", r).Send()
+
+	log.Info().
+		Any("headers", r.Headers).
+		Any("params", r.QueryStringParameters).
+		Str("body", r.Body).
+		Str("method", r.Method()).
+		Any(msgPrefix+" Request", r).
+		Send()
+
 	return r
 }
 
