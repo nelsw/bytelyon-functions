@@ -44,18 +44,28 @@ func (p *Plunder) MarshalZerologObject(evt *zerolog.Event) {
 }
 
 func (p *Plunder) Delete() error {
-	if err := em.Delete(p); err != nil {
+
+	log.Info().EmbedObject(p).Msg("deleting plunder")
+
+	err := em.Delete(p)
+	log.Err(err).EmbedObject(p).Msg("deleted plunder")
+	if err != nil {
 		return err
 	}
 
-	// delete the associated job
-	j, err := NewJob(p.User, p.ID).Find()
-	if err != nil {
+	log.Info().EmbedObject(p).Msg("deleting job")
+
+	var j *Job
+	if j, err = NewJob(p.User, p.ID).Find(); err != nil {
 		log.Warn().Err(err).Msg("failed to find job, it may not exist or have been deleted")
 		return nil
 	}
 
-	return em.Delete(j)
+	err = em.Delete(j)
+
+	log.Err(err).Msg("deleted job")
+
+	return err
 }
 
 func (p *Plunder) Find() error {
@@ -76,6 +86,8 @@ func (p *Plunder) Find() error {
 
 func (p *Plunder) Create(b []byte) (*Plunder, error) {
 
+	log.Info().Msgf("creating plunder: %s", string(b))
+
 	var v Plunder
 	if err := json.Unmarshal(b, &v); err != nil {
 		log.Err(err).Msg("failed to unmarshal plunder")
@@ -93,6 +105,8 @@ func (p *Plunder) Create(b []byte) (*Plunder, error) {
 		log.Err(err).Msg("failed to save plunder")
 		return nil, err
 	}
+
+	log.Info().EmbedObject(p).Msg("created plunder")
 
 	return &v, nil
 }
@@ -129,10 +143,14 @@ func (p *Plunder) FindAll() ([]*Plunder, error) {
 
 func (p *Plunder) Work() {
 
+	log.Info().EmbedObject(p).Msg("plunder working...")
+
 	if err := p.Find(); err != nil {
-		log.Err(err).Msg("failed to find news")
+		log.Err(err).Msg("failed to find plunder to work")
 		return
 	}
+
+	log.Trace().EmbedObject(p).Msg("found plunder to work")
 
 	out, err := fn.New().Request("bytelyon-playwrighter", map[string]any{
 		"dir":    p.Dir() + "/loot/" + NewUlid().String() + "/",
@@ -147,7 +165,7 @@ func (p *Plunder) Work() {
 		result = string(out)
 	}
 
-	log.Info().Str("result", result).Msg("plunder")
+	log.Info().Str("result", result).Msg("plunder work result")
 
 	var job *Job
 	if job, err = NewJob(p.User, p.ID).Find(); err != nil {
@@ -159,9 +177,14 @@ func (p *Plunder) Work() {
 	if err = em.Save(job); err != nil {
 		log.Err(err).Msg("failed to save job")
 	}
+
+	log.Info().EmbedObject(p).Msg("updated plunder job results")
 }
 
 func NewPlunder(user *User, s ...any) *Plunder {
+
+	log.Info().Str("user", user.ID.String()).Msgf("instantiating plunder: %v", s)
+
 	pw := Plunder{User: user}
 	if len(s) > 0 {
 		if _, ok := s[0].(ulid.ULID); ok {
@@ -170,5 +193,8 @@ func NewPlunder(user *User, s ...any) *Plunder {
 			pw.ID = ulid.MustParse(s[0].(string))
 		}
 	}
+
+	log.Info().EmbedObject(&pw).Msg("instantiated plunder")
+
 	return &pw
 }

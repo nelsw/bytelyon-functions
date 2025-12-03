@@ -11,6 +11,15 @@ import (
 func InitLogger() {
 	log.Logger = log.Output(zerolog.ConsoleWriter{
 		Out: os.Stderr,
+		FieldsOrder: []string{
+			"user",
+			"id",
+			"job",
+			"plunder",
+			"news",
+			"target",
+			"follow",
+		},
 		FormatLevel: func(a any) string {
 			var color, level string
 			switch level = strings.ToUpper(a.(string)[:3]); level {
