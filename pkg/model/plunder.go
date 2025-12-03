@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"errors"
 	"regexp"
-	"sort"
 	"strings"
 	"time"
 
@@ -21,7 +20,7 @@ type Plunder struct {
 	ID     ulid.ULID `json:"id"`
 	Target string    `json:"target"`
 	Follow []string  `json:"follow"`
-	Loots  Loots     `json:"loot"`
+	Loot   []*Loot   `json:"loot"`
 }
 
 func (p *Plunder) Path() string {
@@ -40,7 +39,7 @@ func (p *Plunder) MarshalZerologObject(evt *zerolog.Event) {
 	evt.Str("id", p.ID.String()).
 		Str("target", p.Target).
 		Strs("follow", p.Follow).
-		Int("loots", len(p.Loots))
+		Int("loot", len(p.Loot))
 }
 
 func (p *Plunder) Delete() error {
@@ -77,9 +76,7 @@ func (p *Plunder) Find() error {
 
 	keys, _ := s3.New().Keys(p.Dir()+"/loot", "", 1000)
 
-	for _, k := range keys {
-		p.Loots = append(p.Loots, NewLoot(p, k))
-	}
+	p.loadLoot(keys)
 
 	return nil
 }
@@ -118,27 +115,48 @@ func (p *Plunder) FindAll() ([]*Plunder, error) {
 	}
 
 	var keys []string
-	for idx, val := range out {
+	for idx := range out {
 
-		val.User = p.User
+		out[idx].User = p.User
 
-		if keys, err = em.Keys(val, regexp.MustCompile(val.Dir())); err != nil {
+		if keys, err = em.Keys(out[idx], regexp.MustCompile(out[idx].Dir())); err != nil {
 			log.Warn().Err(err).Msg("failed to find keys")
 			continue
 		}
 
-		for _, k := range keys {
-			if strings.HasSuffix(k, "/_.json") {
-				continue
-			}
-			out[idx].Loots = append(out[idx].Loots, NewLoot(val, k))
-		}
-
-		sort.Slice(out[idx].Loots, func(i, j int) bool {
-			return out[idx].Loots[i].ID.Timestamp().UnixMilli() > out[idx].Loots[j].ID.Timestamp().UnixMilli()
-		})
+		out[idx].loadLoot(keys)
 	}
 	return out, nil
+}
+
+func (p *Plunder) loadLoot(keys []string) {
+	// ulid/timestamp/name.ext
+	searches := make(map[string]map[string][]string)
+	for _, k := range keys {
+		if strings.HasSuffix(k, "/_.json") {
+			continue
+		}
+		k = strings.TrimPrefix(k, p.Dir()+"/loot/")
+		id, name, _ := strings.Cut(k, "/")
+		if searches[id] == nil {
+			searches[id] = make(map[string][]string)
+		}
+		ts, title, _ := strings.Cut(name, " ")
+		if ts == "" {
+			continue
+		}
+		searches[id][ts] = append(searches[id][ts], title)
+	}
+
+	if len(searches) == 0 {
+		return
+	}
+
+	for id, m := range searches {
+		for ts, titles := range m {
+			p.Loot = append(p.Loot, NewLoot(p, id, ts, titles))
+		}
+	}
 }
 
 func (p *Plunder) Work() {

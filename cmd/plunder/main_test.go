@@ -21,7 +21,7 @@ func Test(t *testing.T) {
 
 	for _, v := range arr {
 		log.Debug().EmbedObject(&v).Send()
-		for _, l := range v.Loots {
+		for _, l := range v.Loot {
 			log.Debug().EmbedObject(l).Send()
 		}
 	}
