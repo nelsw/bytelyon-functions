@@ -16,6 +16,4 @@ func TestNews_FindAll_News(t *testing.T) {
 
 	assert.NoError(t, err)
 	assert.NotEmpty(t, arr)
-
-	pretty.Println(arr)
 }

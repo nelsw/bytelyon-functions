@@ -14,7 +14,6 @@ func TestNewJob(t *testing.T) {
 	job := NewJob(&user)
 
 	t.Log(job)
-	pretty.Println(job)
 
 	fmt.Println(time.Now().Format(time.RFC3339))
 	fmt.Println(time.Now().UTC().Format(time.RFC3339))
@@ -34,6 +33,4 @@ func TestJob_Save(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, job.User.ID, user.ID)
 	assert.Equal(t, job.Type, NewsJobType)
-
-	pretty.Println(job)
 }
