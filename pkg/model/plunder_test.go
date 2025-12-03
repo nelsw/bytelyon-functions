@@ -11,7 +11,7 @@ import (
 
 func TestPlunder_Find(t *testing.T) {
 	user := MakeDemoUser()
-	p := NewPlunder(&user, ulid.MustParse("01KB0P89VRHZBYA68ZGA4R3HMW"))
+	p := NewPlunder(&user, ulid.MustParse("01KB2F9MMM9H8DMT8N869RW0C6"))
 	err := p.Find()
 
 	assert.NoError(t, err)

@@ -3,6 +3,7 @@ package model
 import (
 	"bytelyon-functions/pkg/service/em"
 	"bytelyon-functions/pkg/service/fn"
+	"bytelyon-functions/pkg/service/s3"
 	"encoding/json"
 	"errors"
 	"regexp"
@@ -63,6 +64,13 @@ func (p *Plunder) Find() error {
 		return err
 	}
 	p.User = user
+
+	keys, _ := s3.New().Keys(p.Dir()+"/loot", "", 1000)
+
+	for _, k := range keys {
+		p.Loots = append(p.Loots, NewLoot(k))
+	}
+
 	return nil
 }
 

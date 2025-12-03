@@ -16,13 +16,13 @@ const (
 	LootTypeHtml          = "html"
 )
 
-type Loots []*Loot
 type Loot struct {
-	Key   string   `json:"key"`
-	URL   string   `json:"url"`
-	Type  LootType `json:"type"`
-	Time  int64    `json:"time"`
-	Title string   `json:"title"`
+	Key     string   `json:"key"`
+	URL     string   `json:"url"`
+	Type    LootType `json:"type"`
+	Time    int64    `json:"time"`
+	Title   string   `json:"title"`
+	Content string   `json:"content,omitempty"`
 }
 
 func (l *Loot) MarshalZerologObject(evt *zerolog.Event) {
@@ -31,12 +31,6 @@ func (l *Loot) MarshalZerologObject(evt *zerolog.Event) {
 		Str("type", string(l.Type)).
 		Int64("time", l.Time).
 		Str("title", l.Title)
-}
-
-func (ll Loots) MarshalZerologArray(a *zerolog.Array) {
-	for _, l := range ll {
-		a.Object(l)
-	}
 }
 
 func NewLoot(k string) *Loot {
@@ -63,11 +57,18 @@ func NewLoot(k string) *Loot {
 		url = k
 	}
 
+	var content string
+	if lt == LootTypeHtml {
+		b, _ := s3.New().Get(k)
+		content = string(b)
+	}
+
 	return &Loot{
-		Key:   k,
-		URL:   url,
-		Title: title,
-		Type:  lt,
-		Time:  time,
+		Key:     k,
+		URL:     url,
+		Title:   title,
+		Type:    lt,
+		Time:    time,
+		Content: content,
 	}
 }
