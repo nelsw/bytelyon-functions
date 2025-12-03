@@ -40,7 +40,7 @@ func (p *Plunder) MarshalZerologObject(evt *zerolog.Event) {
 	evt.Str("id", p.ID.String()).
 		Str("target", p.Target).
 		Strs("follow", p.Follow).
-		Array("loots", p.Loots)
+		Int("loots", len(p.Loots))
 }
 
 func (p *Plunder) Delete() error {
