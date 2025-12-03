@@ -17,7 +17,9 @@ func TestPlunder_Find(t *testing.T) {
 	assert.NoError(t, err)
 
 	log.Debug().EmbedObject(p).Send()
-
+	for _, v := range p.Loots {
+		log.Debug().EmbedObject(v).Send()
+	}
 }
 
 func TestPlunder_FindAll(t *testing.T) {

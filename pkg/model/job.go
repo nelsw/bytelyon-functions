@@ -30,6 +30,7 @@ var (
 type Job struct {
 	User    *User         `json:"-"`
 	ID      ulid.ULID     `json:"id"`
+	Name    string        `json:"name"`
 	Type    JobType       `json:"type"`
 	Freq    *Frequency    `json:"frequency"`
 	Results map[int64]any `json:"results"`

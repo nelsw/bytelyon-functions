@@ -4,7 +4,9 @@ import (
 	"bytelyon-functions/pkg/service/s3"
 	"strconv"
 	"strings"
+	"time"
 
+	"github.com/oklog/ulid/v2"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 )
@@ -14,41 +16,41 @@ type LootType string
 const (
 	LootTypePng  LootType = "png"
 	LootTypeHtml          = "html"
+	LootTypeJson          = "json"
 )
 
 type Loot struct {
-	Key     string   `json:"key"`
-	URL     string   `json:"url"`
-	Type    LootType `json:"type"`
-	Time    int64    `json:"time"`
-	Title   string   `json:"title"`
-	Content string   `json:"content,omitempty"`
+	*Plunder `json:"-"`
+	ID       ulid.ULID `json:"id"`
+	Key      string    `json:"-"`
+	URL      string    `json:"url"`
+	Type     LootType  `json:"type"`
+	Name     string    `json:"name"`
 }
 
 func (l *Loot) MarshalZerologObject(evt *zerolog.Event) {
-	evt.Str("key", l.Key).
+	evt.Str("id", l.ID.String()).
+		Str("plunder", l.Plunder.ID.String()).
 		Str("url", l.URL).
 		Str("type", string(l.Type)).
-		Int64("time", l.Time).
-		Str("title", l.Title)
+		Str("name", l.Name)
 }
 
-func NewLoot(k string) *Loot {
+func NewLoot(p *Plunder, k string) *Loot {
 
 	lt := LootTypePng
 	if strings.HasSuffix(k, ".html") {
 		lt = LootTypeHtml
+	} else if strings.HasSuffix(k, ".json") {
+		lt = LootTypeJson
 	}
 
-	var title string
-	var time int64
-	if idx := strings.Index(k, " "); idx > -1 {
-		title = k[idx+1 : len(k)-4]
-		if i, err := strconv.Atoi(k[:idx]); err == nil {
-			time = int64(i)
-		}
-	} else {
-		title = k
+	lastSlash := strings.LastIndex(k, "/")
+	left, right, _ := strings.Cut(k[lastSlash+1:], " ")
+
+	var id ulid.ULID
+	if i, err := strconv.Atoi(left); err == nil {
+		id = NewUlidFromTime(time.Unix(int64(i), 0))
 	}
 
 	url, err := s3.New().GetPresigned(k)
@@ -57,18 +59,12 @@ func NewLoot(k string) *Loot {
 		url = k
 	}
 
-	var content string
-	if lt == LootTypeHtml {
-		b, _ := s3.New().Get(k)
-		content = string(b)
-	}
-
 	return &Loot{
+		Plunder: p,
+		ID:      id,
 		Key:     k,
 		URL:     url,
-		Title:   title,
+		Name:    strings.TrimSuffix(right, `.`+string(lt)),
 		Type:    lt,
-		Time:    time,
-		Content: content,
 	}
 }

@@ -16,6 +16,7 @@ import (
 type News struct {
 	*User    `json:"-"`
 	ID       ulid.ULID  `json:"id"`
+	Name     string     `json:"name"`
 	Keywords []string   `json:"keywords"`
 	Articles []*Article `json:"articles,omitempty"`
 }

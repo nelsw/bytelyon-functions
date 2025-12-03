@@ -78,7 +78,7 @@ func (p *Plunder) Find() error {
 	keys, _ := s3.New().Keys(p.Dir()+"/loot", "", 1000)
 
 	for _, k := range keys {
-		p.Loots = append(p.Loots, NewLoot(k))
+		p.Loots = append(p.Loots, NewLoot(p, k))
 	}
 
 	return nil
@@ -131,11 +131,11 @@ func (p *Plunder) FindAll() ([]*Plunder, error) {
 			if strings.HasSuffix(k, "/_.json") {
 				continue
 			}
-			out[idx].Loots = append(out[idx].Loots, NewLoot(k))
+			out[idx].Loots = append(out[idx].Loots, NewLoot(val, k))
 		}
 
 		sort.Slice(out[idx].Loots, func(i, j int) bool {
-			return out[idx].Loots[i].Time > out[idx].Loots[j].Time
+			return out[idx].Loots[i].ID.Timestamp().UnixMilli() > out[idx].Loots[j].ID.Timestamp().UnixMilli()
 		})
 	}
 	return out, nil
