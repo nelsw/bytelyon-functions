@@ -143,14 +143,14 @@ func (p *Plunder) FindAll() ([]*Plunder, error) {
 
 func (p *Plunder) Work() {
 
-	log.Info().EmbedObject(p).Msg("plunder working...")
+	log.Info().EmbedObject(p).Msg("working plunder")
 
 	if err := p.Find(); err != nil {
 		log.Err(err).Msg("failed to find plunder to work")
 		return
 	}
 
-	log.Trace().EmbedObject(p).Msg("found plunder to work")
+	log.Trace().EmbedObject(p).Msg("found workable plunder")
 
 	out, err := fn.New().Request("bytelyon-playwrighter", map[string]any{
 		"dir":    p.Dir() + "/loot/" + NewUlid().String() + "/",
@@ -165,7 +165,7 @@ func (p *Plunder) Work() {
 		result = string(out)
 	}
 
-	log.Info().Str("result", result).Msg("plunder work result")
+	log.Info().Str("result", result).Msg("worked plunder")
 
 	var job *Job
 	if job, err = NewJob(p.User, p.ID).Find(); err != nil {
