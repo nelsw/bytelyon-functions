@@ -1,7 +1,6 @@
 package model
 
 import (
-	"bytelyon-functions/pkg/util/pretty"
 	"testing"
 
 	"github.com/stretchr/testify/assert"

@@ -1,7 +1,6 @@
 package model
 
 import (
-	"bytelyon-functions/pkg/util/pretty"
 	"fmt"
 	"testing"
 	"time"
