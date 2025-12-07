@@ -1,4 +1,4 @@
-package api
+package logger
 
 import (
 	"os"
@@ -8,7 +8,12 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-func InitLogger() {
+func Init() {
+	if os.Getenv("APP_MODE") != "test" {
+		log.Logger = log.With().Caller().Logger()
+		zerolog.TimeFieldFormat = ""
+		return
+	}
 	log.Logger = log.Output(zerolog.ConsoleWriter{
 		Out: os.Stderr,
 		FieldsOrder: []string{
@@ -17,8 +22,12 @@ func InitLogger() {
 			"job",
 			"plunder",
 			"news",
+			"name",
 			"target",
 			"follow",
+			"data",
+			"image",
+			"html",
 		},
 		FormatLevel: func(a any) string {
 			var color, level string
@@ -40,5 +49,5 @@ func InitLogger() {
 			}
 			return color + level + "\033[0m" // Reset color after level
 		},
-	}).With().Caller().Logger()
+	})
 }

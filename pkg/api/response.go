@@ -68,7 +68,7 @@ func response(code int, body string) (events.APIGatewayV2HTTPResponse, error) {
 
 	log.WithLevel(lvl).
 		Int("code", code).
-		Str("body", body).
+		Int("body", len(body)).
 		Msg("API Response")
 
 	return events.APIGatewayV2HTTPResponse{

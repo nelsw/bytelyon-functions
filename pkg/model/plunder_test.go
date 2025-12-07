@@ -1,6 +1,7 @@
 package model
 
 import (
+	logger "bytelyon-functions/pkg"
 	"encoding/json"
 	"testing"
 
@@ -10,28 +11,39 @@ import (
 )
 
 func TestPlunder_Find(t *testing.T) {
+	t.Setenv("APP_MODE", "test")
+	logger.Init()
 	user := MakeDemoUser()
-	p := NewPlunder(&user, ulid.MustParse("01KB0P89VRHZBYA68ZGA4R3HMW"))
+	p := NewPlunder(&user, ulid.MustParse("01KBH5HA4358EG5W61N4S8RPN6"))
 	err := p.Find()
 
 	assert.NoError(t, err)
 
-	log.Debug().EmbedObject(p).Send()
-
+	log.Debug().EmbedObject(p).Msg("plunder")
+	for _, v := range p.Loot {
+		log.Debug().EmbedObject(v).Msg("loot")
+	}
 }
 
 func TestPlunder_FindAll(t *testing.T) {
+	t.Setenv("APP_MODE", "test")
+	logger.Init()
 	user := MakeDemoUser()
 	p := NewPlunder(&user)
 	arr, err := p.FindAll()
 	assert.NoError(t, err)
 	assert.NotEmpty(t, arr)
-	for _, v := range arr {
-		log.Debug().EmbedObject(v).Send()
+	for _, p = range arr {
+		log.Debug().EmbedObject(p).Msg("plunder")
+		for _, v := range p.Loot {
+			log.Debug().EmbedObject(v).Msg("loot")
+		}
 	}
 }
 
 func TestPlunder_Work(t *testing.T) {
+	t.Setenv("APP_MODE", "prod")
+	logger.Init()
 	user := MakeDemoUser()
 	b, _ := json.Marshal(map[string]any{
 		"target": "ev fire blankets",

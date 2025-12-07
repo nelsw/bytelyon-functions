@@ -87,7 +87,7 @@ func FindAll[T Entity](e T, r ...*regexp.Regexp) ([]T, error) {
 	var wg sync.WaitGroup
 
 	for i, k := range keys {
-		if i > 0 && i%1_000 == 0 {
+		if i > 0 && i%1_500 == 0 {
 			time.Sleep(1 * time.Second)
 		}
 		wg.Go(func() {
