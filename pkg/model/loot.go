@@ -3,7 +3,9 @@ package model
 import (
 	"bytelyon-functions/pkg/service/s3"
 	"encoding/json"
+	"strconv"
 	"strings"
+	"time"
 
 	"github.com/oklog/ulid/v2"
 	"github.com/rs/zerolog"
@@ -12,6 +14,7 @@ import (
 
 type Loot struct {
 	*Plunder `json:"-"`
+	IDX      ulid.ULID `json:"idx"`
 	ID       ulid.ULID `json:"id"`
 	Name     string    `json:"name"`
 	Data     any       `json:"data"`
@@ -67,10 +70,18 @@ func NewLoot(p *Plunder, id, ts string, titles []string) *Loot {
 			data = dataFn(key)
 		}
 	}
+	var unix int64
+	if TS, err := strconv.Atoi(ts); err != nil {
+		log.Err(err).Msg("failed to parse timestamp!?")
+		unix = time.Now().UTC().UnixMilli()
+	} else {
+		unix = int64(TS)
+	}
 
 	return &Loot{
 		Plunder: p,
-		ID:      ulid.MustParse(id),
+		IDX:     ulid.MustParse(id),
+		ID:      NewUlidFromTime(time.Unix(unix, 0)),
 		Name:    name,
 		Data:    data,
 		HTML:    html,
