@@ -17,7 +17,7 @@ func Handler(req api.Request) (events.APIGatewayV2HTTPResponse, error) {
 	case http.MethodGet:
 		return api.Response(req.User().Sitemaps())
 	case http.MethodPost:
-		//return api.Response(v.Create())
+		return api.Response(model.NewSitemap(req.User()).Create([]byte(req.Body)))
 	case http.MethodDelete:
 		return api.Response(model.NewSitemap(req.User()).Delete())
 	}

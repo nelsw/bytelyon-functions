@@ -28,4 +28,5 @@ func TestSitemaps(t *testing.T) {
 	sitemaps, err := NewDemoUser().Sitemaps()
 	assert.NoError(t, err)
 	assert.NotEmpty(t, sitemaps)
+	log.Debug().EmbedObject(sitemaps).Msg("sitemaps")
 }
