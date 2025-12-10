@@ -67,6 +67,9 @@ func (n *News) Create(b []byte) (*News, error) {
 		return nil, err
 	}
 
+	n.ID = v.ID
+	n.Work()
+
 	return &v, nil
 }
 
@@ -77,19 +80,19 @@ func (n *News) Update(b []byte) (*News, error) {
 		log.Err(err).Msg("failed to unmarshal news")
 		return nil, err
 	}
+	v.User = n.User
 
-	n.Name = v.Name
-
-	if err := v.Find(); err != nil {
+	n.ID = v.ID
+	if err := n.Find(); err != nil {
 		log.Err(err).Msg("failed to find news")
 		return nil, err
 	}
 
-	return n, em.Save(n)
+	return &v, em.Save(&v)
 }
 
 func (n *News) Find() error {
-	var u *User
+	u := n.User
 	err := em.Find(n)
 	n.User = u
 	return err
@@ -166,11 +169,16 @@ func (n *News) Work() {
 			continue
 		}
 		i.Scrub()
+		var source string
+		if i.Source != nil {
+			source = i.Source.Value
+		}
 		if err := em.Save(&Article{
+			ID:     NewUlid(),
 			News:   n,
 			URL:    i.URL,
 			Title:  i.Title,
-			Source: i.Source.Value,
+			Source: source,
 			Time:   i.Time.UnixMilli(),
 		}); err != nil {
 			log.Err(err).Msg("failed to save article")

@@ -45,15 +45,23 @@ func (s *Sitemap) Key() string {
 }
 
 func NewSitemap(user *User, id ...any) *Sitemap {
-	s := Sitemap{User: user}
-	if len(id) > 0 {
-		if _, ok := id[0].(ulid.ULID); ok {
-			s.ID = id[0].(ulid.ULID)
+	s := &Sitemap{User: user}
+	if len(id) == 0 {
+		return s
+	}
+	s.Domain = id[0].(string)
+
+	if len(id) > 1 {
+		if _, ok := id[1].(ulid.ULID); ok {
+			s.ID = id[1].(ulid.ULID)
 		} else {
-			s.ID = ulid.MustParse(id[0].(string))
+			s.ID = ulid.MustParse(id[1].(string))
+		}
+		if err := s.Find(); err != nil {
+			log.Warn().Err(err).Msg("failed to find sitemap")
 		}
 	}
-	return &s
+	return s
 }
 
 func (s *Sitemap) Fetch(url string) ([]string, []string, error) {
@@ -163,7 +171,19 @@ func (s *Sitemap) Create(b []byte) (*Sitemap, error) {
 }
 
 func (s *Sitemap) Delete() (any, error) {
-	return nil, s3.New().Delete(s.Key())
+	err := s3.New().Delete(s.Key())
+	log.Err(err).EmbedObject(s).Msg("Delete sitemap")
+	return nil, err
+}
+
+func (s *Sitemap) Find() error {
+	u := s.User
+	if err := em.Find(s); err != nil {
+		return err
+	}
+	log.Debug().EmbedObject(s).Msg("find sitemap")
+	s.User = u
+	return nil
 }
 
 func (s *Sitemap) FindAll() ([]*Sitemap, error) {
