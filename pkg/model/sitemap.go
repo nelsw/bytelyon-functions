@@ -118,6 +118,34 @@ func (s *Sitemap) Create(b []byte) (*Sitemap, error) {
 
 	log.Info().EmbedObject(s.User).Msg("creating sitemap")
 
+	ƒ := func(s *Sitemap) {
+		// new up a Crawler using a reference to the Sitemap, aka Fetcher
+		crawler := NewCrawler(s)
+
+		// increment the crawler wait group by 1 as prepare to execute 1 go routine
+		crawler.Add()
+
+		// initiate crawling using the fetcher values
+		go crawler.Crawl(s.URL, 10)
+
+		// wait for the initial (and entire) crawl to complete
+		crawler.Wait()
+
+		// update crawl details
+		s.Duration = time.Now().UTC().Sub(s.ID.Timestamp()).Truncate(time.Second).Seconds()
+		s.Relative = crawler.Relative()
+		s.Remote = crawler.Remote()
+
+		err := em.Save(s)
+
+		// log the results
+		log.Err(err).
+			Str("URL", s.Domain).
+			Int("visited", len(s.Relative)).
+			Int("tracked", len(s.Remote)).
+			Msg("Sitemap Built")
+	}
+
 	user := s.User
 	if err := json.Unmarshal(b, s); err != nil {
 		log.Err(err).Msg("failed to unmarshal sitemap")
@@ -125,6 +153,7 @@ func (s *Sitemap) Create(b []byte) (*Sitemap, error) {
 	}
 
 	s.User = user
+	s.ID = NewUlid()
 	s.URL = strings.TrimSpace(s.URL)
 
 	if !strings.HasPrefix(s.URL, "https://") {
@@ -139,33 +168,15 @@ func (s *Sitemap) Create(b []byte) (*Sitemap, error) {
 	s.Domain = strings.TrimPrefix(s.Domain, "http://")
 	s.Domain = strings.TrimPrefix(s.Domain, "www.")
 
-	// new up a Crawler using a reference to the Sitemap, aka Fetcher
-	crawler := NewCrawler(s)
-
-	// increment the crawler wait group by 1 as prepare to execute 1 go routine
-	crawler.Add()
-
-	// initiate crawling using the fetcher values
-	s.ID = NewUlid()
-	go crawler.Crawl(s.URL, 25)
-
-	// wait for the initial (and entire) crawl to complete
-	crawler.Wait()
-
-	// update crawl details
-	s.Duration = time.Now().UTC().Sub(s.ID.Timestamp()).Truncate(time.Second).Seconds()
-	s.Relative = crawler.Relative()
-	s.Remote = crawler.Remote()
-
 	err := em.Save(s)
 
-	// log the results
-	log.Logger.
-		Err(err).
-		Str("URL", s.URL).
-		Int("visited", len(s.Relative)).
-		Int("tracked", len(s.Remote)).
+	log.Err(err).
+		EmbedObject(s).
 		Msg("Sitemap Created")
+
+	if err != nil {
+		go ƒ(s)
+	}
 
 	return s, err
 }
