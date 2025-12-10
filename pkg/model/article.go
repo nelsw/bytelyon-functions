@@ -43,9 +43,8 @@ func (a *Article) FindAll() ([]*Article, error) {
 		log.Err(err).Msg("failed to find articles")
 		return []*Article{}, err
 	}
-	for i, v := range all {
-		v.News = a.News
-		all[i] = v
+	for i := range all {
+		all[i].News = a.News
 	}
 	return all, nil
 }

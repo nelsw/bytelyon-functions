@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/oklog/ulid/v2"
+	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 )
 
@@ -19,6 +20,19 @@ type News struct {
 	Name     string     `json:"name"`
 	Keywords []string   `json:"keywords"`
 	Articles []*Article `json:"articles,omitempty"`
+	Size     int        `json:"size,omitempty"`
+	Updated  int64      `json:"updated,omitempty"`
+}
+
+func (n *News) MarshalZerologObject(evt *zerolog.Event) {
+	if n.User != nil {
+		evt.EmbedObject(n.User)
+	}
+	evt.Stringer("news", n.ID).
+		Strs("keywords", n.Keywords).
+		Time("created", n.ID.Timestamp().UTC()).
+		Time("updated", time.UnixMilli(n.Updated).UTC()).
+		Int("articles", n.Size)
 }
 
 func (n *News) Path() string {
@@ -106,6 +120,10 @@ func (n *News) FindAll() ([]*News, error) {
 
 	for i, v := range out {
 		out[i].Articles, _ = NewArticle(n.User, v.ID.String()).FindAll()
+		out[i].Size = len(out[i].Articles)
+		if out[i].Size > 0 {
+			out[i].Updated = out[i].Articles[out[i].Size-1].ID.Timestamp().UnixMilli()
+		}
 	}
 
 	return out, nil
