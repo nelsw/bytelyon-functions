@@ -44,8 +44,16 @@ func (s *Sitemap) Key() string {
 	return s.Path() + "/" + s.Domain + "/" + s.ID.String() + "/_.json"
 }
 
-func NewSitemap(user *User) *Sitemap {
-	return &Sitemap{User: user}
+func NewSitemap(user *User, id ...any) *Sitemap {
+	s := Sitemap{User: user}
+	if len(id) > 0 {
+		if _, ok := id[0].(ulid.ULID); ok {
+			s.ID = id[0].(ulid.ULID)
+		} else {
+			s.ID = ulid.MustParse(id[0].(string))
+		}
+	}
+	return &s
 }
 
 func (s *Sitemap) Fetch(url string) ([]string, []string, error) {
