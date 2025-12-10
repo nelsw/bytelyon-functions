@@ -1,24 +1,39 @@
 package model
 
 import (
+	"bytelyon-functions/pkg/service/em"
 	"bytelyon-functions/pkg/service/s3"
 	"encoding/json"
 	"errors"
+	"regexp"
+	"strings"
 	"time"
 
+	"github.com/oklog/ulid/v2"
+	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
-	"golang.org/x/net/html"
 )
 
 type Sitemap struct {
-	User     *User     `json:"-"`
-	ID       string    `json:"id"`
-	URL      URL       `json:"url"`
+	*User    `json:"-"`
+	ID       ulid.ULID `json:"id"`
+	URL      string    `json:"url"`
 	Domain   string    `json:"domain"`
-	Start    time.Time `json:"start"`
 	Duration float64   `json:"duration"`
 	Relative []string  `json:"relative"`
 	Remote   []string  `json:"remote"`
+}
+
+func (s *Sitemap) MarshalZerologObject(evt *zerolog.Event) {
+	if s.User != nil {
+		evt.EmbedObject(s.User)
+	}
+	evt.Stringer("sitemap", s.ID).
+		Str("url", s.URL).
+		Str("domain", s.Domain).
+		Float64("duration", s.Duration).
+		Int("relative", len(s.Relative)).
+		Int("remote", len(s.Remote))
 }
 
 func (s *Sitemap) Path() string {
@@ -26,88 +41,87 @@ func (s *Sitemap) Path() string {
 }
 
 func (s *Sitemap) Key() string {
-	return s.Path() + "/" + s.ID + "/_.json"
+	return s.Path() + "/" + s.Domain + "/" + s.ID.String() + "/_.json"
 }
 
-func NewSitemap(user *User, encodedURL string) (*Sitemap, error) {
+func NewSitemap(user *User) *Sitemap {
+	return &Sitemap{User: user}
+}
 
-	url, err := DecodeURL(encodedURL)
-	if err != nil {
+func (s *Sitemap) Fetch(url string) ([]string, []string, error) {
+
+	if strings.HasSuffix(url, ".jpeg") ||
+		strings.HasSuffix(url, ".png") ||
+		strings.HasSuffix(url, ".gif") ||
+		strings.HasSuffix(url, ".jpg") ||
+		strings.HasSuffix(url, ".pdf") {
+		return nil, nil, nil
+	}
+
+	doc := NewDocument(url)
+	if err := doc.Fetch(); err != nil {
+		return nil, nil, err
+	}
+
+	var relative, remote []string
+	for _, a := range doc.anchors() {
+
+		if regexp.MustCompile(`^(#|mailto:|tel:).*`).MatchString(a) {
+			continue
+		}
+
+		if strings.HasPrefix(a, "?") {
+			relative = append(relative, url+a)
+			continue
+		}
+
+		if strings.HasPrefix(a, "/") {
+			url = strings.TrimSuffix(url, "/")
+			relative = append(relative, url+a)
+			continue
+		}
+
+		a = strings.TrimPrefix(a, "https://")
+		a = strings.TrimPrefix(a, "http://")
+		a = strings.TrimPrefix(a, "www.")
+		a = strings.TrimSpace(a)
+
+		if !strings.HasPrefix(a, s.Domain) {
+			remote = append(remote, a)
+			continue
+		}
+
+		a = strings.TrimPrefix(a, s.Domain)
+		relative = append(relative, s.URL+a)
+	}
+
+	return relative, remote, nil
+}
+
+func (s *Sitemap) Create(b []byte) (*Sitemap, error) {
+
+	log.Info().EmbedObject(s.User).Msg("creating sitemap")
+
+	user := s.User
+	if err := json.Unmarshal(b, s); err != nil {
+		log.Err(err).Msg("failed to unmarshal sitemap")
 		return nil, err
 	}
 
-	return &Sitemap{
-		ID:     encodedURL,
-		User:   user,
-		URL:    url,
-		Domain: url.Domain(),
-	}, nil
-}
+	s.User = user
+	s.URL = strings.TrimSpace(s.URL)
 
-func (s *Sitemap) Fetch(u URL) (relative, remote []URL, err error) {
-
-	var doc *html.Node
-	if doc, err = u.Document(); err != nil {
-		return
+	if !strings.HasPrefix(s.URL, "https://") {
+		return nil, errors.New("invalid URL")
 	}
 
-	// declare the traversal function type here to enable recursion inside the ƒn
-	var fn func(*html.Node)
-
-	// define the traversal function and use comments to love on your future status
-	fn = func(n *html.Node) {
-
-		// if the given node is an anchor tag
-		if n.Type == html.ElementNode && n.Data == "a" {
-
-			// iterate tag attributes until we find the href
-			for _, a := range n.Attr {
-
-				// fail fast if not hyperlink reference
-				if a.Key != "href" {
-					continue
-				}
-
-				href := MakeURL(a.Val)
-
-				if err = href.Validate(); err != nil {
-					continue
-				}
-
-				// check if the anchor is valid and not a hash/mail/tel reference or email address
-				if href.StartsWith("mailto:", "tel:", "#") || href.EndsWith("@"+s.Domain) {
-					continue
-				}
-
-				// check if the anchor is only a path; prefix root URL if so
-				if href.StartsWith("/", "?") {
-					relative = append(relative, s.URL.Append(href))
-					continue
-				}
-
-				// check if the anchor starts with the domain + "https://www."
-				if href.Domain() == s.Domain {
-					relative = append(relative, href)
-					continue
-				}
-
-				remote = append(remote, href)
-			}
-		}
-
-		// continue traversing every sibling per child. give em noogies.
-		for c := n.FirstChild; c != nil; c = c.NextSibling {
-			fn(c)
-		}
+	if strings.HasSuffix(s.URL, "/") {
+		s.URL = strings.TrimSuffix(s.URL, "/")
 	}
 
-	// and ... all together ... RECURSE!
-	fn(doc)
-
-	return
-}
-
-func (s *Sitemap) Create() (*Sitemap, error) {
+	s.Domain = strings.TrimPrefix(s.URL, "https://")
+	s.Domain = strings.TrimPrefix(s.Domain, "http://")
+	s.Domain = strings.TrimPrefix(s.Domain, "www.")
 
 	// new up a Crawler using a reference to the Sitemap, aka Fetcher
 	crawler := NewCrawler(s)
@@ -116,27 +130,23 @@ func (s *Sitemap) Create() (*Sitemap, error) {
 	crawler.Add()
 
 	// initiate crawling using the fetcher values
-	s.Start = time.Now().UTC()
+	s.ID = NewUlid()
 	go crawler.Crawl(s.URL, 25)
 
 	// wait for the initial (and entire) crawl to complete
 	crawler.Wait()
 
 	// update crawl details
-	s.Duration = time.Now().UTC().Sub(s.Start).Truncate(time.Second).Seconds()
+	s.Duration = time.Now().UTC().Sub(s.ID.Timestamp()).Truncate(time.Second).Seconds()
 	s.Relative = crawler.Relative()
 	s.Remote = crawler.Remote()
 
-	// marshall it
-	b, err := json.Marshal(s)
-	if err == nil {
-		err = s3.New().Put(s.Key(), b)
-	}
+	err := em.Save(s)
 
 	// log the results
 	log.Logger.
 		Err(err).
-		Str("URL", s.URL.String()).
+		Str("URL", s.URL).
 		Int("visited", len(s.Relative)).
 		Int("tracked", len(s.Remote)).
 		Msg("Sitemap Created")
@@ -144,36 +154,10 @@ func (s *Sitemap) Create() (*Sitemap, error) {
 	return s, err
 }
 
-func (s *Sitemap) FindAll() ([]Sitemap, error) {
-
-	db := s3.New()
-
-	keys, err := db.Keys(s.Path(), "", 1000)
-	if err != nil {
-		return nil, err
-	}
-
-	var vv []Sitemap
-	for _, k := range keys {
-
-		o, e := db.Get(k)
-		if e != nil {
-			err = errors.Join(err, e)
-			continue
-		}
-
-		var v Sitemap
-		if e = json.Unmarshal(o, &v); e != nil {
-			err = errors.Join(err, e)
-			continue
-		}
-
-		vv = append(vv, v)
-	}
-
-	return vv, err
-}
-
 func (s *Sitemap) Delete() (any, error) {
 	return nil, s3.New().Delete(s.Key())
+}
+
+func (s *Sitemap) FindAll() ([]*Sitemap, error) {
+	return em.FindAll(s, regexp.MustCompile(`.*/sitemap/([A-Za-z0-9]{26}/_.json)$`))
 }

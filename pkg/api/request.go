@@ -35,6 +35,7 @@ func (r *Request) Log(s ...string) *Request {
 		Any("params", r.QueryStringParameters).
 		Str("body", r.Body).
 		Str("method", r.Method()).
+		Str("user", r.User().ID.String()).
 		Any(msgPrefix+" Request", r).
 		Send()
 

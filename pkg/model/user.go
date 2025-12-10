@@ -6,6 +6,7 @@ import (
 	"regexp"
 
 	"github.com/oklog/ulid/v2"
+	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 )
 
@@ -19,6 +20,15 @@ type User struct {
 
 func MakeDemoUser() User {
 	return User{ID: ulid.MustParse("01K48PC0BK13BWV2CGWFP8QQH0")}
+}
+
+func NewDemoUser() *User {
+	u := MakeDemoUser()
+	return &u
+}
+
+func (u *User) MarshalZerologObject(evt *zerolog.Event) {
+	evt.Stringer("user", u.ID)
 }
 
 func (u *User) Path() string {
@@ -65,4 +75,33 @@ func FindAllUsers() ([]*User, error) {
 		return []*User{}, err
 	}
 	return users, nil
+}
+
+func (u *User) Searches() ([]*Search, error) {
+
+	search := Search{User: u}
+	searches, err := em.FindAll(&search, regexp.MustCompile(search.Path()+`/[A-Za-z0-9]{26}/_.json`))
+
+	log.Err(err).
+		Int("searches", len(searches)).
+		Msg("find searches")
+
+	for _, s := range searches {
+		if err = s.FetchPages(u); err != nil {
+			return searches, err
+		}
+	}
+
+	return searches, err
+}
+
+func (u *User) Sitemaps() (map[string][]*Sitemap, error) {
+	sitemap := Sitemap{User: u}
+	sitemaps, err := em.FindAll(&sitemap, regexp.MustCompile(sitemap.Path()+`/[A-Za-z0-9\\.]+/[A-Za-z0-9]{26}/_.json`))
+	log.Err(err).Int("sitemaps", len(sitemaps)).Msg("find sitemaps")
+	m := make(map[string][]*Sitemap)
+	for _, s := range sitemaps {
+		m[s.Domain] = append(m[s.Domain], s)
+	}
+	return m, err
 }
