@@ -86,29 +86,23 @@ func (s *Sitemap) Fetch(url string) ([]string, []string, error) {
 			continue
 		}
 
-		if strings.HasPrefix(a, "?") {
-			relative = append(relative, url+a)
+		if strings.HasPrefix(a, "?") ||
+			strings.HasPrefix(a, "/") {
+			relative = append(relative, s.URL+a)
 			continue
 		}
 
-		if strings.HasPrefix(a, "/") {
-			url = strings.TrimSuffix(url, "/")
-			relative = append(relative, url+a)
-			continue
-		}
+		u := strings.TrimPrefix(a, "https://")
+		u = strings.TrimPrefix(u, "http://")
+		u = strings.TrimPrefix(u, "www.")
+		u = strings.TrimSuffix(u, "/")
+		u = strings.TrimSpace(u)
 
-		a = strings.TrimPrefix(a, "https://")
-		a = strings.TrimPrefix(a, "http://")
-		a = strings.TrimPrefix(a, "www.")
-		a = strings.TrimSpace(a)
-
-		if !strings.HasPrefix(a, s.Domain) {
+		if strings.HasPrefix(u, s.Domain) {
+			relative = append(relative, a)
+		} else {
 			remote = append(remote, a)
-			continue
 		}
-
-		a = strings.TrimPrefix(a, s.Domain)
-		relative = append(relative, s.URL+a)
 	}
 
 	return relative, remote, nil
@@ -117,34 +111,6 @@ func (s *Sitemap) Fetch(url string) ([]string, []string, error) {
 func (s *Sitemap) Create(b []byte) (*Sitemap, error) {
 
 	log.Info().EmbedObject(s.User).Msg("creating sitemap")
-
-	ƒ := func(s *Sitemap) {
-		// new up a Crawler using a reference to the Sitemap, aka Fetcher
-		crawler := NewCrawler(s)
-
-		// increment the crawler wait group by 1 as prepare to execute 1 go routine
-		crawler.Add()
-
-		// initiate crawling using the fetcher values
-		go crawler.Crawl(s.URL, 10)
-
-		// wait for the initial (and entire) crawl to complete
-		crawler.Wait()
-
-		// update crawl details
-		s.Duration = time.Now().UTC().Sub(s.ID.Timestamp()).Truncate(time.Second).Seconds()
-		s.Relative = crawler.Relative()
-		s.Remote = crawler.Remote()
-
-		err := em.Save(s)
-
-		// log the results
-		log.Err(err).
-			Str("URL", s.Domain).
-			Int("visited", len(s.Relative)).
-			Int("tracked", len(s.Remote)).
-			Msg("Sitemap Built")
-	}
 
 	user := s.User
 	if err := json.Unmarshal(b, s); err != nil {
@@ -169,14 +135,43 @@ func (s *Sitemap) Create(b []byte) (*Sitemap, error) {
 	s.Domain = strings.TrimPrefix(s.Domain, "www.")
 
 	err := em.Save(s)
+	s.User = user
 
 	log.Err(err).
 		EmbedObject(s).
 		Msg("Sitemap Created")
 
 	if err != nil {
-		go ƒ(s)
+		return s, err
 	}
+
+	log.Trace().EmbedObject(s).Msg("starting crawl")
+
+	// new up a Crawler using a reference to the Sitemap, aka Fetcher
+	crawler := NewCrawler(s)
+
+	// increment the crawler wait group by 1 as prepare to execute 1 go routine
+	crawler.Add()
+
+	// initiate crawling using the fetcher values
+	go crawler.Crawl(s.URL, 15)
+
+	// wait for the initial (and entire) crawl to complete
+	crawler.Wait()
+
+	// update crawl details
+	s.Duration = time.Now().UTC().Sub(s.ID.Timestamp()).Truncate(time.Second).Seconds()
+	s.Relative = crawler.Relative()
+	s.Remote = crawler.Remote()
+
+	err = em.Save(s)
+
+	// log the results
+	log.Err(err).
+		Str("URL", s.Domain).
+		Int("visited", len(s.Relative)).
+		Int("tracked", len(s.Remote)).
+		Msg("Sitemap Built")
 
 	return s, err
 }

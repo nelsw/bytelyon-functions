@@ -41,6 +41,11 @@ func (c *Crawler) Crawl(URL string, depth int) {
 
 	// Fetch the url and handle return arguments appropriately
 	relativeURLs, remoteURLs, err := c.Fetch(URL)
+	log.Trace().
+		Str("URL", URL).
+		Int("relative", len(relativeURLs)).
+		Int("remote", len(remoteURLs)).
+		Msg("fetched")
 
 	// Store all external links to crawler so that we can make note of egress points
 	c.putAllRemote(remoteURLs)

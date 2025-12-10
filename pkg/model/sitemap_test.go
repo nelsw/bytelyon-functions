@@ -14,7 +14,7 @@ func Test_Crawl(t *testing.T) {
 	logger.Init()
 	user := NewDemoUser()
 	sitemap := NewSitemap(user)
-	sitemap.URL = "https://www.ubicquia.com"
+	sitemap.URL = "https://www.ford.com"
 	b, _ := json.Marshal(&sitemap)
 	out, err := sitemap.Create(b)
 	assert.NoError(t, err)

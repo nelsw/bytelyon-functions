@@ -24,31 +24,46 @@ func NewDocument(url string) *Document {
 
 func (d *Document) Fetch(i ...int) error {
 
-	var attempts int
+	var attempt int
 	if len(i) > 0 {
-		attempts = i[0]
+		attempt = i[0]
+	} else {
+		attempt = 1
 	}
 
-	if attempts > 6 {
+	if attempt >= 6 {
 		return errors.New("max fetch attempts reached")
-	} else if attempts > 0 {
-		time.Sleep(time.Second * time.Duration(i[0]*10))
 	}
 
-	res, err := http.Get(d.URL)
+	if attempt > 1 {
+		time.Sleep(time.Second * time.Duration(attempt))
+	}
+
+	c := &http.Client{
+		Timeout: time.Second * time.Duration((attempt)*3),
+	}
+	r, err := http.NewRequest(http.MethodGet, d.URL, nil)
+	log.Err(err).Str("URL", d.URL).Msg("client request")
 	if err != nil {
-		log.Err(err).Str("URL", d.URL).Msg("Document get")
-		return d.Fetch(attempts + 1)
+		return d.Fetch(attempt + 1)
 	}
 
-	defer res.Body.Close()
+	r.Close = true
 
-	if d.Node, err = html.Parse(res.Body); err != nil {
-		log.Err(err).Str("URL", d.URL).Msg("Document parse")
-		return err
+	var res *http.Response
+	res, err = c.Do(r)
+	log.Err(err).Str("URL", d.URL).Msg("client do")
+	if err != nil {
+		return d.Fetch(attempt + 1)
 	}
 
-	return nil
+	d.Node, err = html.Parse(res.Body)
+	log.Err(err).Str("URL", d.URL).Msg("Document parse")
+
+	cErr := res.Body.Close()
+	log.Err(cErr).Str("URL", d.URL).Msg("Res body close")
+
+	return err
 }
 
 func (d *Document) anchors() []string {
