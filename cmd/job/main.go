@@ -13,11 +13,7 @@ func Handler(req api.Request) (events.APIGatewayV2HTTPResponse, error) {
 
 	req.Log()
 
-	if req.Method() == http.MethodOptions {
-		return api.OK()
-	}
-
-	v := model.NewJob(req.User())
+	v := model.NewJob(req.User(), req.Param("id"))
 
 	switch req.Method() {
 	case http.MethodDelete:

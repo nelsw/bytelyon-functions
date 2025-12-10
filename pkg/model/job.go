@@ -36,11 +36,21 @@ type Job struct {
 	Results map[int64]any `json:"results"`
 }
 
-func NewJob(user *User, id ...ulid.ULID) *Job {
-	if len(id) > 0 {
-		return &Job{User: user, ID: id[0]}
+func NewJob(args ...any) *Job {
+	var v = new(Job)
+	for _, arg := range args {
+		switch arg.(type) {
+		case *User:
+			v.User = arg.(*User)
+		case ulid.ULID:
+			v.ID = arg.(ulid.ULID)
+		case string:
+			if id, err := ulid.Parse(arg.(string)); err == nil {
+				v.ID = id
+			}
+		}
 	}
-	return &Job{User: user}
+	return v
 }
 
 func (j *Job) Path() string {
