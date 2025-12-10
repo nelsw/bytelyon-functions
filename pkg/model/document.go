@@ -2,7 +2,9 @@ package model
 
 import (
 	"errors"
+	"maps"
 	"net/http"
+	"slices"
 	"strings"
 	"time"
 
@@ -27,10 +29,10 @@ func (d *Document) Fetch(i ...int) error {
 		attempts = i[0]
 	}
 
-	if attempts > 3 {
+	if attempts > 6 {
 		return errors.New("max fetch attempts reached")
 	} else if attempts > 0 {
-		time.Sleep(time.Second * time.Duration(i[0]*3))
+		time.Sleep(time.Second * time.Duration(i[0]*10))
 	}
 
 	res, err := http.Get(d.URL)
@@ -50,11 +52,11 @@ func (d *Document) Fetch(i ...int) error {
 }
 
 func (d *Document) anchors() []string {
-	var anchors []string
+	m := make(map[string]bool)
 	goquery.NewDocumentFromNode(d.Node).Find(`a`).Each(func(i int, sel *goquery.Selection) {
 		if a, ok := sel.Attr("href"); ok {
-			anchors = append(anchors, strings.TrimSpace(a))
+			m[strings.TrimSpace(a)] = true
 		}
 	})
-	return anchors
+	return slices.Collect(maps.Keys(m))
 }
