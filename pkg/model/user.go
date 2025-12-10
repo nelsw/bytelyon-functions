@@ -94,3 +94,14 @@ func (u *User) Searches() ([]*Search, error) {
 
 	return searches, err
 }
+
+func (u *User) Sitemaps() (map[string][]*Sitemap, error) {
+	sitemap := Sitemap{User: u}
+	sitemaps, err := em.FindAll(&sitemap, regexp.MustCompile(sitemap.Path()+`/[A-Za-z0-9\\.]+/[A-Za-z0-9]{26}/_.json`))
+	log.Err(err).Int("sitemaps", len(sitemaps)).Msg("find sitemaps")
+	m := make(map[string][]*Sitemap)
+	for _, s := range sitemaps {
+		m[s.Domain] = append(m[s.Domain], s)
+	}
+	return m, err
+}

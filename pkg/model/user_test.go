@@ -21,3 +21,11 @@ func TestSearches(t *testing.T) {
 		}
 	}
 }
+
+func TestSitemaps(t *testing.T) {
+	t.Setenv("APP_MODE", "test")
+	logger.Init()
+	sitemaps, err := NewDemoUser().Sitemaps()
+	assert.NoError(t, err)
+	assert.NotEmpty(t, sitemaps)
+}
