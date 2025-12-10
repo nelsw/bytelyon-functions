@@ -2,6 +2,8 @@ package model
 
 import (
 	"bytelyon-functions/pkg/service/em"
+	"encoding/json"
+	"errors"
 	"fmt"
 	"regexp"
 
@@ -65,4 +67,60 @@ func (s *Search) FetchPages(u *User) (err error) {
 		Msg("fetch pages")
 
 	return err
+}
+
+func (s *Search) Create(b []byte) (*Search, error) {
+
+	var v Search
+	if err := json.Unmarshal(b, &v); err != nil {
+		log.Err(err).Msg("failed to unmarshal search")
+		return nil, err
+	}
+
+	if v.Query == "" {
+		return nil, errors.New("missing query")
+	}
+
+	v.User = s.User
+	if v.ID.IsZero() {
+		v.ID = NewUlid()
+	}
+
+	err := em.Save(&v)
+	log.Err(err).EmbedObject(&v).Msg("save search")
+
+	return &v, err
+}
+
+func (s *Search) Delete() error {
+
+	if err := em.Delete(s); err != nil {
+		return err
+	}
+
+	// delete the associated job
+	j, err := NewJob(s.User, s.ID).Find()
+	if err != nil {
+		log.Warn().Err(err).Msg("failed to find search, it may not exist or have been deleted")
+		return nil
+	}
+
+	return em.Delete(j)
+}
+
+func NewSearch(args ...any) *Search {
+	var v = new(Search)
+	for _, arg := range args {
+		switch arg.(type) {
+		case *User:
+			v.User = arg.(*User)
+		case ulid.ULID:
+			v.ID = arg.(ulid.ULID)
+		case string:
+			if id, err := ulid.Parse(arg.(string)); err == nil {
+				v.ID = id
+			}
+		}
+	}
+	return v
 }

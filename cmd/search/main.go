@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytelyon-functions/pkg/api"
+	"bytelyon-functions/pkg/model"
 	"net/http"
 
 	"github.com/aws/aws-lambda-go/events"
@@ -14,6 +15,10 @@ func Handler(req api.Request) (events.APIGatewayV2HTTPResponse, error) {
 	switch req.Method() {
 	case http.MethodGet:
 		return api.Response(req.User().Searches())
+	case http.MethodPost:
+		return api.Response(model.NewSearch(req.User()).Create([]byte(req.Body)))
+	case http.MethodDelete:
+		return api.Response(nil, model.NewSearch(req.User(), req.Param("id")).Delete())
 	}
 
 	return api.NotImplemented()
