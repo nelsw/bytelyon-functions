@@ -56,6 +56,24 @@ func (n *News) Create(b []byte) (*News, error) {
 	return &v, nil
 }
 
+func (n *News) Update(b []byte) (*News, error) {
+
+	var v News
+	if err := json.Unmarshal(b, &v); err != nil {
+		log.Err(err).Msg("failed to unmarshal news")
+		return nil, err
+	}
+
+	n.Name = v.Name
+
+	if err := v.Find(); err != nil {
+		log.Err(err).Msg("failed to find news")
+		return nil, err
+	}
+
+	return n, em.Save(n)
+}
+
 func (n *News) Find() error {
 	var u *User
 	err := em.Find(n)

@@ -22,6 +22,8 @@ func Handler(req api.Request) (events.APIGatewayV2HTTPResponse, error) {
 		return api.Response(v.Create([]byte(req.Body)))
 	case http.MethodGet:
 		return api.Response(v.FindAll())
+	case http.MethodPut:
+		return api.Response(v.Update([]byte(req.Body)))
 	case http.MethodPatch:
 		v.Work()
 		return api.OK()
