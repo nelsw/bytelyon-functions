@@ -10,8 +10,10 @@ import (
 	"net/url"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/oklog/ulid/v2"
+	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"golang.org/x/net/html"
 )
@@ -30,6 +32,17 @@ type Item struct {
 	NewsImageSize      string `json:"news_image_size,omitempty" xml:"News_ImageSize"`
 	NewsImageMaxWidth  int    `json:"news_image_max_width,omitempty" xml:"News_ImageMaxWidth"`
 	NewsImageMaxHeight int    `json:"news_image_max_height,omitempty" xml:"News_ImageMaxHeight"`
+}
+
+func (i *Item) MarshalZerologObject(evt *zerolog.Event) {
+	evt.Stringer("id", i.ID).
+		Str("url", i.URL).
+		Str("title", i.Title).
+		Time("time", time.Time(*i.Time))
+	if i.Source != nil {
+		evt.Str("source", i.Source.Value)
+	}
+	evt.Str("news_source", i.NewsSource)
 }
 
 func decodeBingNewsURL(s string) (string, error) {
