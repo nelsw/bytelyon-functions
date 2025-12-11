@@ -13,7 +13,7 @@ var bingRegexp = regexp.MustCompile("</?News(:\\w+)>")
 
 type RSS struct {
 	Channel struct {
-		Items []Item `xml:"item"`
+		Items []*Item `xml:"item"`
 	} `xml:"channel"`
 }
 
