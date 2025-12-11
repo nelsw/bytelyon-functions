@@ -81,8 +81,6 @@ func (j *Job) Save(b []byte) (*Job, error) {
 		return nil, err
 	} else if v.ID.IsZero() {
 		return nil, errors.New("missing job id")
-	} else if w := v.Worker(); w == nil {
-		return nil, errors.New("invalid worker id/type combination")
 	}
 
 	// todo - validate the worker exists

@@ -19,6 +19,7 @@ func Handler(req api.Request) (events.APIGatewayV2HTTPResponse, error) {
 	case http.MethodDelete:
 		return api.Response(nil, v.Delete())
 	case http.MethodPost:
+		return api.Response(v.Save([]byte(req.Body)))
 	case http.MethodPut:
 		return api.Response(v.Save([]byte(req.Body)))
 	case http.MethodGet:
