@@ -13,8 +13,16 @@ func InitLogger() {
 		Out: os.Stderr,
 		FieldsOrder: []string{
 			"user",
-			"id",
+			"user_id",
+			"search",
+			"search_id",
 			"job",
+			"job_id",
+			"result",
+			"result_id",
+			"page",
+			"page_id",
+			"id",
 			"plunder",
 			"news",
 			"target",
@@ -40,5 +48,5 @@ func InitLogger() {
 			}
 			return color + level + "\033[0m" // Reset color after level
 		},
-	}).With().Caller().Logger()
+	})
 }

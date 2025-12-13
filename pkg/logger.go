@@ -9,25 +9,32 @@ import (
 )
 
 func Init() {
-	if os.Getenv("APP_MODE") != "test" {
-		log.Logger = log.With().Caller().Logger()
-		zerolog.TimeFieldFormat = ""
-		return
-	}
+
 	log.Logger = log.Output(zerolog.ConsoleWriter{
 		Out: os.Stderr,
 		FieldsOrder: []string{
 			"user",
-			"id",
+			"user_id",
+			"search",
+			"search_id",
 			"job",
-			"plunder",
+			"job_id",
+			"result",
+			"result_id",
+			"page",
+			"page_id",
+			"id",
+			"domain",
+			"title",
+			"results",
+			"screenshot",
+			"content",
+			"query",
+			"targets",
+			"pages",
 			"news",
-			"name",
 			"target",
 			"follow",
-			"data",
-			"image",
-			"html",
 		},
 		FormatLevel: func(a any) string {
 			var color, level string

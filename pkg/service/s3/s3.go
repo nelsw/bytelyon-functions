@@ -130,6 +130,6 @@ func New() Service {
 		c,
 		s3.NewPresignClient(c),
 		context.Background(),
-		"bytelyon-db-" + mode,
+		"bytelyon-db-prod",
 	}
 }
