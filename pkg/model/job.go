@@ -142,8 +142,6 @@ func (j *Job) Worker() Worker {
 	switch j.Type {
 	case NewsJobType:
 		return NewNews(j.User, j.ID)
-	case PlunderJobType:
-		return NewPlunder(j.User, j.ID)
 	case SitemapJobType:
 		log.Warn().Msg("sitemap worker not yet implemented")
 	case SearchJobType:

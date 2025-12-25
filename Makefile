@@ -1,6 +1,14 @@
 include .env
 
-.PHONY: test
+BIN="./bin"
+SRC=$(shell find . -name "*.go")
+
+ifeq (, $(shell which golangci-lint))
+$(warning "could not find golangci-lint in $(PATH), run: curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/HEAD/install.sh | sh -s -- -b $(go env GOPATH)/bin v2.7.2")
+endif
+
+.PHONY: fmt lint test install_deps clean
+
 
 build:
 	@printf "➜  %s  %s [\033[35m%s\033[0m]" "🛠" "build" ${name}
@@ -57,13 +65,13 @@ publish:
 	@printf "  ✅\n"
 	@make url
 
-test: clean
-	@printf "➜  %s  %s [\033[35m%s\033[0m]\n\n" "📊" "test" "*"
-	@go test -covermode=atomic -coverpkg=./... -coverprofile=cp.out ./...  > /dev/null
-	@sed -i '' -e '/bytelyon-functions\/cmd\//d' cp.out
-	@sed -i '' -e '/bytelyon-functions\/test\//d' cp.out
-	@go tool cover -func=cp.out
-	@go tool cover -html=cp.out
+#test: clean
+#	@printf "➜  %s  %s [\033[35m%s\033[0m]\n\n" "📊" "test" "*"
+#	@go test -covermode=atomic -coverpkg=./... -coverprofile=cp.out ./...  > /dev/null
+#	@sed -i '' -e '/bytelyon-functions\/cmd\//d' cp.out
+#	@sed -i '' -e '/bytelyon-functions\/test\//d' cp.out
+#	@go tool cover -func=cp.out
+#	@go tool cover -html=cp.out
 
 unpublish:
 	@printf "➜  %s  %s [\033[35m%s\033[0m]" "⛔️" "unpublish" ${name}
@@ -122,3 +130,32 @@ update-image: login push
       --function-name ${name} \
       --image-uri ${AWS_ACCOUNT_ID}.dkr.ecr.us-east-1.amazonaws.com/${name}:latest \
       --publish > /dev/null
+
+
+
+#default: all
+#
+#all: fmt test
+
+fmt:
+	$(info ******************** checking formatting ********************)
+	@test -z $(shell gofmt -l $(SRC)) || (gofmt -d $(SRC); exit 1)
+
+lint:
+	$(info ******************** running lint tools ********************)
+	golangci-lint run -v
+
+test: install_deps
+	$(info ******************** running tests ********************)
+	go test -v ./...
+
+richtest: install_deps
+	$(info ******************** running tests with kyoh86/richgo ********************)
+	richgo test -v ./...
+
+install_deps:
+	$(info ******************** downloading dependencies ********************)
+	go get -v ./...
+
+clean:
+	rm -rf $(BIN)
