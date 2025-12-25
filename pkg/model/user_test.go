@@ -9,8 +9,8 @@ import (
 )
 
 func TestSearches(t *testing.T) {
-	t.Setenv("APP_MODE", "test")
 	logger.Init()
+	t.Setenv("APP_MODE", "test")
 	searches, err := NewDemoUser().Searches()
 	assert.NoError(t, err)
 	assert.NotEmpty(t, searches)

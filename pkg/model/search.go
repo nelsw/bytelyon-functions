@@ -24,10 +24,11 @@ func (t Targets) MarshalZerologObject(evt *zerolog.Event) {
 
 type Search struct {
 	*User   `json:"-"`
+	UserID  ulid.ULID `json:"user_id"`
 	ID      ulid.ULID `json:"id"`
 	Query   string    `json:"query"`
 	Targets Targets   `json:"targets"`
-	Pages   []*Page   `json:"pages"`
+	Pages   []*Page   `json:"pages,omitempty"`
 }
 
 func (s *Search) Path() string {
@@ -46,8 +47,10 @@ func (s *Search) MarshalZerologObject(evt *zerolog.Event) {
 	if s.User != nil {
 		evt.EmbedObject(s.User)
 	}
-	evt.Stringer("id", s.ID).
+	evt.Str("search", s.ID.String()[20:]).
+		Str("user", s.UserID.String()[20:]).
 		Str("query", s.Query).
+		Int("pages", len(s.Pages)).
 		EmbedObject(s.Targets)
 }
 

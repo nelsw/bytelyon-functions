@@ -3,6 +3,7 @@ package em
 import (
 	"bytelyon-functions/pkg/service/s3"
 	"encoding/json"
+	"fmt"
 	"regexp"
 	"strings"
 	"sync"
@@ -82,7 +83,7 @@ func FindAll[T Entity](e T, r ...*regexp.Regexp) ([]T, error) {
 	if err != nil {
 		return nil, err
 	}
-
+	fmt.Println(len(keys))
 	var strs []string
 	var wg sync.WaitGroup
 
@@ -95,17 +96,18 @@ func FindAll[T Entity](e T, r ...*regexp.Regexp) ([]T, error) {
 			if b, err = db.Get(k); err != nil {
 				log.Warn().Err(err).Str("key", k).Msg("failed to get entity")
 			} else {
+				log.Debug().Msgf("key %s", k)
 				strs = append(strs, string(b))
 			}
 		})
 	}
 
-	log.Info().Int("count", len(keys)).Msg("waiting to get all entities")
+	log.Trace().Int("count", len(keys)).Msg("waiting to get all entities")
 
 	wg.Wait()
 
-	log.Info().Int("count", len(strs)).Msg("all entities retrieved")
-
+	log.Trace().Int("count", len(strs)).Msg("all entities retrieved")
+	fmt.Println(strs[0])
 	var entities []T
 	if err = json.Unmarshal([]byte("["+strings.Join(strs, ",")+"]"), &entities); err != nil {
 		return nil, err
