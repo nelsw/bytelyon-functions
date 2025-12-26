@@ -28,7 +28,7 @@ type client struct {
 	context.Context
 }
 
-// New returns a new S3 client with a Background context.
+// New returns a new S3 client with a background context.
 // An optional variadic set of Config values can be provided as
 // input that will be prepended to the configs slice.
 func New(optFns ...func(*config.LoadOptions) error) Service {

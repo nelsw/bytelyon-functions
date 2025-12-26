@@ -27,6 +27,10 @@ func (u *User) String() string {
 	return "user/" + u.ID.String()
 }
 
+func NewUser(id ulid.ULID) *User {
+	return &User{ID: id}
+}
+
 func MakeDemoUser() User {
 	return User{ID: ulid.MustParse("01K48PC0BK13BWV2CGWFP8QQH0")}
 }
