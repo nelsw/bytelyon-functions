@@ -1,40 +1,71 @@
 package model
 
-import "github.com/oklog/ulid/v2"
+import (
+	"github.com/oklog/ulid/v2"
+	"github.com/rs/zerolog/log"
+)
 
 type Prowler struct {
 	UserID  ulid.ULID   `json:"user_id"`
 	ID      ulid.ULID   `json:"id"`
 	Type    ProwlerType `json:"type"`
-	Query   string      `json:"query"`
 	Targets Targets     `json:"targets"`
+	Query   string      `json:"query"`
 }
 
-func NewProwl(a ...any) *Prowler {
-	p := &Prowler{
-		UserID: a[0].(ulid.ULID),
-		ID:     a[1].(ulid.ULID),
-		Type:   a[2].(ProwlerType),
+func NewProwler(a ...any) *Prowler {
+	var p = new(Prowler)
+	for _, v := range a {
+		switch v.(type) {
+		case ulid.ULID:
+			if p.UserID.IsZero() {
+				p.UserID = v.(ulid.ULID)
+			} else {
+				p.ID = v.(ulid.ULID)
+			}
+		case Targets:
+			p.Targets = v.(Targets)
+		case ProwlerType:
+			p.Type = v.(ProwlerType)
+		case string:
+			if id, err := ulid.Parse(v.(string)); err == nil && p.ID.IsZero() {
+				p.ID = id
+				continue
+			} else if p.Type == "" {
+				p.Type = v.(ProwlerType)
+			} else {
+				p.Query = v.(string)
+			}
+		}
 	}
-	if len(a) > 3 {
-		p.Query = a[3].(string)
+
+	if p.ID.IsZero() {
+		p.ID = NewUlid()
 	}
-	if len(a) > 4 {
-		p.Targets = a[4].(Targets)
-	}
+
 	return p
 }
 
-func (p *Prowler) Hunt() {
-	if p.Type == SearchProwlType {
+func (p *Prowler) Prowl(a ...any) {
 
+	headless := len(a) > 0 && a[0].(bool)
+
+	prowl, err := NewProwl(p, &headless)
+	if err != nil {
+		log.Warn().Err(err).Msg("Prowler - Prowl failed to initialize")
+		return
 	}
-}
+	defer prowl.Close()
 
-func (p *Prowler) HasTargets() bool {
-	return p.Targets != nil && !p.Targets.None()
-}
-
-func (p *Prowler) IsTarget(t string) bool {
-	return p.HasTargets() && p.Targets.Exist(t)
+	if p.Type == SearchProwlType {
+		log.Info().Msg("Prowler - Searching ... ")
+		if err = prowl.Search(); err == nil {
+			log.Info().Bool("headless", headless).Msg("Prowler - Search Succeeded")
+		} else if !headless {
+			log.Warn().Err(err).Msg("Prowler - Headed Search Failed!")
+		} else {
+			log.Warn().Err(err).Msg("Prowler - Headless Search Failed; retrying with head ...")
+			p.Prowl()
+		}
+	}
 }

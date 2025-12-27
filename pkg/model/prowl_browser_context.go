@@ -1,7 +1,8 @@
-package prowl
+package model
 
 import (
 	. "bytelyon-functions/pkg/util"
+	"math/rand"
 
 	"github.com/playwright-community/playwright-go"
 	"github.com/rs/zerolog/log"
@@ -45,7 +46,24 @@ const (
 }`
 )
 
-func (p *Prowler) NewBrowserContext() (err error) {
+var (
+	userAgents = []string{
+		"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/104.0.0.0 Safari/537.36",
+		"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/104.0.5112.79 Safari/537.36",
+		"Mozilla/5.0 (Windows 7 Enterprise; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.6099.71 Safari/537.36",
+		"Mozilla/5.0 (Windows NT 10.0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/104.0.0.0 Safari/537.36",
+		"Mozilla/5.0 (Windows NT 10.0; WOW64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.5756.197 Safari/537.36",
+		"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/106.0.3713.147 Safari/537.36",
+		"Mozilla/5.0 (Windows NT 11.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.6998.166 Safari/537.36",
+		"Mozilla/5.0 (Windows Server 2012 R2 Standard; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/118.0.5975.80 Safari/537.36",
+		"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/103.0.5060.53 Safari/537.36",
+		"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/113.0.5672 Safari/537.36",
+		"Mozilla/5.0 (X11; Linux x86_64; CentOS Ubuntu 19.04) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/118.0.5957.0 Safari/537.36",
+	}
+)
+
+func (p *Prowl) NewBrowserContext() (err error) {
+
 	p.BrowserContext, err = p.Browser.NewContext(playwright.BrowserNewContextOptions{
 		AcceptDownloads:   Ptr(true),
 		ColorScheme:       playwright.ColorSchemeDark,
@@ -58,14 +76,14 @@ func (p *Prowler) NewBrowserContext() (err error) {
 		ReducedMotion:     playwright.ReducedMotionNoPreference,
 		//StorageState:      search.FindState(),
 		TimezoneId: Ptr("America/New_York"),
-		UserAgent:  p.BrowserType.RandomUserAgent(),
+		UserAgent:  Ptr(userAgents[rand.Intn(len(userAgents))]),
 	})
 	if err == nil {
 		p.BrowserContext.SetDefaultTimeout(60_000)
 		err = p.BrowserContext.AddInitScript(playwright.Script{Content: Ptr(browserContextScript)})
 	}
 
-	log.Err(err).Msg("Prowler - NewBrowserContext")
+	log.Err(err).Msg("Prowl - NewBrowserContext")
 
 	return
 }

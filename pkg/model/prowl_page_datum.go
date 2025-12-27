@@ -1,6 +1,6 @@
 package model
 
-type SearchResult struct {
+type Datum struct {
 	Position int     `json:"position"`
 	Title    string  `json:"title"`
 	Link     string  `json:"link"`

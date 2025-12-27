@@ -1,4 +1,4 @@
-package prowl
+package model
 
 import (
 	. "bytelyon-functions/pkg/util"
@@ -7,10 +7,11 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-func (p *Prowler) NewBrowser() (err error) {
-	opts := playwright.BrowserTypeLaunchOptions{
-		Headless: &p.headless,
-		Timeout:  Ptr(2 * 60_000.0),
+func (p *Prowl) NewBrowser() (err error) {
+
+	p.Browser, err = p.Chromium.Launch(playwright.BrowserTypeLaunchOptions{
+		Headless: p.Headless,
+		Timeout:  Ptr(60_000.0),
 		Args: []string{
 			"--disable-accelerated-2d-canvas",
 			"--disable-background-networking",
@@ -41,17 +42,9 @@ func (p *Prowler) NewBrowser() (err error) {
 		IgnoreDefaultArgs: []string{
 			"--enable-automation",
 		},
-	}
-	switch p.BrowserType {
-	case Chromium:
-		p.Browser, err = p.Chromium.Launch(opts)
-	case Firefox:
-		p.Browser, err = p.Firefox.Launch(opts)
-	case WebKit:
-		p.Browser, err = p.WebKit.Launch(opts)
-	}
+	})
 
-	log.Err(err).Msg("Prowler - NewBrowser")
+	log.Err(err).Msg("Prowl - NewBrowser")
 
 	return
 }

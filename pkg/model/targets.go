@@ -30,8 +30,16 @@ func (t Targets) None() bool {
 	return len(t) == 0
 }
 
+func (t Targets) Follow(s string) bool {
+	v, k := t[s]
+	if t.FollowAll() {
+		return !k
+	}
+	return k && v
+}
+
 func (t Targets) FollowAll() bool {
-	if t.None() {
+	if len(t) == 0 {
 		return false
 	}
 	_, ok := t["*"]

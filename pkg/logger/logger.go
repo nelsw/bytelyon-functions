@@ -8,6 +8,10 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+func init() {
+	log.Logger = *New()
+}
+
 type builder struct {
 	level  zerolog.Level
 	fields []string
