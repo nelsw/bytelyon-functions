@@ -100,32 +100,37 @@ func (p *Prowl) Save(page playwright.Page) {
 
 	db := s3.New()
 
-	if b, err := page.Screenshot(playwright.PageScreenshotOptions{FullPage: Ptr(true)}); err != nil {
-		log.Warn().Err(err).Msg("Prowl - Failed to Screenshot Page")
-	} else {
-		db.Put(keyPath+"/screenshot.png", b)
-	}
-
-	content, err := page.Content()
+	title, err := page.Title()
 	if err != nil {
-		log.Warn().Err(err).Msg("Prowl - Failed to get Page Content")
-	} else {
-		db.Put(keyPath+"/content.html", []byte(content))
-	}
-
-	var title string
-	if title, err = page.Title(); err != nil {
 		log.Warn().Err(err).Msg("Prowl - Failed to get Page Title")
 	}
 
-	b, _ := json.Marshal(map[string]any{
+	m := map[string]any{
 		"prowler":  p.Prowler,
 		"prowl_id": p.ID,
 		"id":       id,
 		"title":    title,
 		"url":      page.URL(),
-		"data":     p.Data(page.URL(), content),
-	})
+	}
+
+	if b, imgErr := page.Screenshot(playwright.PageScreenshotOptions{FullPage: Ptr(true)}); err != nil {
+		log.Warn().Err(imgErr).Msg("Prowl - Failed to Screenshot Page")
+	} else {
+		db.Put(keyPath+"/screenshot.png", b)
+		m["screenshot_key"] = keyPath + "/screenshot.png"
+	}
+
+	if content, htmlErr := page.Content(); htmlErr != nil {
+		log.Warn().Err(htmlErr).Msg("Prowl - Failed to get Page Content")
+	} else {
+		db.Put(keyPath+"/content.html", []byte(content))
+		m["content_key"] = keyPath + "/content.html"
+		if data := p.Data(page.URL(), content); data != nil {
+			m["data"] = data
+		}
+	}
+
+	b, _ := json.Marshal(m)
 	db.Put(keyPath+"/_.json", b)
 
 	log.Info().Stringer("id", id).Msg("Prowl - Saved Page")

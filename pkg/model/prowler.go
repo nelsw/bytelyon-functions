@@ -1,6 +1,9 @@
 package model
 
 import (
+	"bytelyon-functions/pkg/service/s3"
+	"encoding/json"
+
 	"github.com/oklog/ulid/v2"
 	"github.com/rs/zerolog/log"
 )
@@ -11,6 +14,7 @@ type Prowler struct {
 	Type    ProwlerType `json:"type"`
 	Targets Targets     `json:"targets"`
 	Query   string      `json:"query"`
+	Prowled ulid.ULID   `json:"prowled"`
 }
 
 func NewProwler(a ...any) *Prowler {
@@ -58,14 +62,23 @@ func (p *Prowler) Prowl(a ...any) {
 	defer prowl.Close()
 
 	if p.Type == SearchProwlType {
+
 		log.Info().Msg("Prowler - Searching ... ")
-		if err = prowl.Search(); err == nil {
-			log.Info().Bool("headless", headless).Msg("Prowler - Search Succeeded")
-		} else if !headless {
-			log.Warn().Err(err).Msg("Prowler - Headed Search Failed!")
-		} else {
+
+		if err = prowl.Search(); err != nil && headless {
 			log.Warn().Err(err).Msg("Prowler - Headless Search Failed; retrying with head ...")
 			p.Prowl()
+			return
+		}
+
+		if err != nil {
+			log.Warn().Err(err).Msg("Prowler - Headed Search Failed!")
+		} else {
+			log.Info().Bool("headless", headless).Msg("Prowler - Search Succeeded")
 		}
 	}
+
+	p.Prowled = prowl.ID
+	b, _ := json.Marshal(p)
+	s3.New().Put("user/"+p.UserID.String()+"/prowler/search/"+p.ID.String()+"/_.json", b)
 }
