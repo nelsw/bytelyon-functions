@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/aws/aws-lambda-go/events"
@@ -66,12 +67,16 @@ func handlePost(r api.Request) (events.APIGatewayV2HTTPResponse, error) {
 
 	if p.Frequency < time.Duration(10)*time.Minute {
 		return api.BadRequest(errors.New("sitemap prowl frequency must be at least 10 minutes"))
-	} else if p.Type == model.SitemapProwlType && p.URL == "" {
+	} else if p.Type == model.SitemapProwlType && !strings.HasPrefix(p.URL, "https://") {
 		return api.BadRequest(errors.New("sitemap prowl url must be set"))
 	} else if p.Query == "" {
 		return api.BadRequest(errors.New("query must be set"))
 	}
 	// todo - improve type specific validation
+
+	if strings.HasSuffix(p.URL, "/") {
+		p.URL = strings.TrimSuffix(p.URL, "/")
+	}
 
 	p.UserID = r.User().ID
 	p.ID = model.NewUlid()

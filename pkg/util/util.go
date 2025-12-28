@@ -32,3 +32,14 @@ func Join(sep string, a ...any) string {
 	}
 	return strings.Join(strs, sep)
 }
+
+func Domain(s string) string {
+	s = strings.TrimPrefix(s, "https://")
+	s = strings.TrimPrefix(s, "http://")
+	s = strings.TrimPrefix(s, "www.")
+	s = strings.Split(s, "/")[0]
+	for strings.Count(s, ".") > 1 {
+		s = strings.Split(s, ".")[1]
+	}
+	return s
+}

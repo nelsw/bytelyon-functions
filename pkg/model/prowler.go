@@ -1,7 +1,9 @@
 package model
 
 import (
+	"bytelyon-functions/pkg/db"
 	"bytelyon-functions/pkg/util"
+	"encoding/json"
 	"time"
 
 	"github.com/oklog/ulid/v2"
@@ -12,15 +14,19 @@ type Prowler struct {
 	UserID    ulid.ULID     `json:"user_id"`
 	ID        ulid.ULID     `json:"id"`
 	Type      ProwlerType   `json:"type"`
+	Prowled   ulid.ULID     `json:"prowled"`
+	Frequency time.Duration `json:"frequency"`
+	Duration  time.Duration `json:"duration"`
 	Targets   Targets       `json:"targets,omitempty"`
 	Query     string        `json:"query,omitempty"`
 	URL       string        `json:"url,omitempty"`
-	Frequency time.Duration `json:"frequency"`
-	Prowled   ulid.ULID     `json:"prowled"`
+	Domain    string        `json:"domain,omitempty"`
+	Relative  []string      `json:"relative,omitempty"`
+	Remote    []string      `json:"remote,omitempty"`
 }
 
 func (p *Prowler) String() string {
-	return util.Path("user", p.UserID, "prowler", p.Type, p.ID)
+	return util.Path("user", p.UserID, p.Type, p.ID)
 }
 
 func (p *Prowler) Prowl() {
@@ -35,8 +41,25 @@ func (p *Prowler) Prowl() {
 		return
 	}
 
+	var id ulid.ULID
 	switch p.Type {
 	case SearchProwlType:
-		p.Search(true)
+		id = p.ProwlSearch(true)
+	case SitemapProwlType:
+		id = p.ProwlSitemap()
+	case NewsProwlType:
+		id = p.ProwlNews()
+	}
+
+	if id.IsZero() {
+		log.Warn().Msgf("Prowler - Invalid Prowl Type [%s]", p.Type)
+		return
+	}
+
+	p.Prowled = id
+	p.Duration = time.Since(id.Timestamp())
+	if err := db.Save(p); err != nil {
+		b, _ := json.MarshalIndent(p, "", "\t")
+		log.Warn().Err(err).Msg("Prowler - Failed to save prowler: " + string(b))
 	}
 }

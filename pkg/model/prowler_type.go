@@ -10,11 +10,12 @@ type ProwlerType string
 const (
 	SearchProwlType  ProwlerType = "search"
 	SitemapProwlType ProwlerType = "sitemap"
-	ArticleProwlType ProwlerType = "article"
+	NewsProwlType    ProwlerType = "news"
 )
 
 var (
-	InvalidProwlerType = errors.New("invalid prowler type, must be one of: search, sitemap, article")
+	prowlerTypeRegex      = regexp.MustCompile(`^(search|sitemap|news)$`)
+	InvalidProwlerTypeErr = errors.New("invalid prowler type, must be one of: search, sitemap, news")
 )
 
 func (t ProwlerType) String() string {
@@ -22,22 +23,12 @@ func (t ProwlerType) String() string {
 }
 
 func (t ProwlerType) Validate() error {
-	regex := regexp.MustCompile(`^(search|sitemap|article)$`)
-	if !regex.MatchString(t.String()) {
-		return InvalidProwlerType
+	if prowlerTypeRegex.MatchString(t.String()) {
+		return nil
 	}
-	return nil
+	return InvalidProwlerTypeErr
 }
 
-func NewProwlerType(s string) (t ProwlerType, err error) {
-	t = ProwlerType(s)
-	return t, t.Validate()
-}
-
-func MakeProwlerType(s string) ProwlerType {
-	t, err := NewProwlerType(s)
-	if err != nil {
-		return ""
-	}
-	return t
+func NewProwlerType(s string) (ProwlerType, error) {
+	return ProwlerType(s), ProwlerType(s).Validate()
 }

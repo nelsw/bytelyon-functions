@@ -1,17 +1,16 @@
 package model
 
 import (
-	"bytelyon-functions/pkg/db"
-
+	"github.com/oklog/ulid/v2"
 	"github.com/rs/zerolog/log"
 )
 
-func (p *Prowler) Search(headless bool) {
+func (p *Prowler) ProwlSearch(headless bool) ulid.ULID {
 
 	prowl, err := NewProwl(p, &headless)
 	if err != nil {
 		log.Warn().Err(err).Msg("Prowler - Prowl failed to initialize")
-		return
+		return prowl.ID
 	}
 	defer prowl.Close()
 
@@ -19,8 +18,7 @@ func (p *Prowler) Search(headless bool) {
 
 	if err = prowl.Search(); err != nil && headless {
 		log.Warn().Err(err).Msg("Prowler - Headless Search Failed; retrying with head ...")
-		p.Search(false)
-		return
+		return p.ProwlSearch(false)
 	}
 
 	if err != nil {
@@ -29,6 +27,5 @@ func (p *Prowler) Search(headless bool) {
 		log.Info().Bool("headless", headless).Msg("Prowler - Search Succeeded")
 	}
 
-	p.Prowled = prowl.ID
-	db.Save(p)
+	return prowl.ID
 }

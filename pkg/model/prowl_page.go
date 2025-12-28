@@ -1,11 +1,8 @@
 package model
 
 import (
-	"bytelyon-functions/pkg/service/s3"
 	. "bytelyon-functions/pkg/util"
-	"encoding/json"
 	"errors"
-	"fmt"
 
 	"github.com/playwright-community/playwright-go"
 	"github.com/rs/zerolog/log"
@@ -95,43 +92,27 @@ func (p *Prowl) WaitForLoadState(page playwright.Page, ls ...playwright.LoadStat
 
 func (p *Prowl) Save(page playwright.Page) {
 
-	id := NewUlid()
-	keyPath := fmt.Sprintf("user/%s/prowler/%s/%s/prowl/%s/page/%s", p.UserID, p.Prowler.Type, p.Prowler.ID, p.ID, id)
+	sp := &SearchPage{
+		UserID:    p.UserID,
+		ProwlerID: p.Prowler.ID,
+		ProwlID:   p.ID,
+		ID:        NewUlid(),
+		URL:       page.URL(),
+	}
 
-	db := s3.New()
-
-	title, err := page.Title()
-	if err != nil {
+	var err error
+	if sp.Title, err = page.Title(); err != nil {
 		log.Warn().Err(err).Msg("Prowl - Failed to get Page Title")
 	}
-
-	m := map[string]any{
-		"prowler":  p.Prowler,
-		"prowl_id": p.ID,
-		"id":       id,
-		"title":    title,
-		"url":      page.URL(),
+	if sp.Screenshot, err = page.Screenshot(playwright.PageScreenshotOptions{FullPage: Ptr(true)}); err != nil {
+		log.Warn().Err(err).Msg("Prowl - Failed to Screenshot Page")
+	}
+	if sp.Content, err = page.Content(); err != nil {
+		log.Warn().Err(err).Msg("Prowl - Failed to get Page Content")
 	}
 
-	if b, imgErr := page.Screenshot(playwright.PageScreenshotOptions{FullPage: Ptr(true)}); err != nil {
-		log.Warn().Err(imgErr).Msg("Prowl - Failed to Screenshot Page")
-	} else {
-		db.Put(keyPath+"/screenshot.png", b)
-		m["screenshot_key"] = keyPath + "/screenshot.png"
-	}
+	sp.Data = p.Data(sp.URL, sp.Content)
+	sp.Domain = Domain(sp.URL)
 
-	if content, htmlErr := page.Content(); htmlErr != nil {
-		log.Warn().Err(htmlErr).Msg("Prowl - Failed to get Page Content")
-	} else {
-		db.Put(keyPath+"/content.html", []byte(content))
-		m["content_key"] = keyPath + "/content.html"
-		if data := p.Data(page.URL(), content); data != nil {
-			m["data"] = data
-		}
-	}
-
-	b, _ := json.Marshal(m)
-	db.Put(keyPath+"/_.json", b)
-
-	log.Info().Stringer("id", id).Msg("Prowl - Saved Page")
+	sp.Save()
 }
