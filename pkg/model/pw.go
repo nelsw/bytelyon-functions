@@ -3,7 +3,6 @@ package model
 import (
 	"bytelyon-functions/pkg/logger"
 	"errors"
-	"fmt"
 	"log/slog"
 	"regexp"
 
@@ -13,16 +12,7 @@ import (
 )
 
 var (
-	blockedRegex               = regexp.MustCompile("(google.com/sorry|captcha|unusual traffic)")
-	googleSearchInputSelectors = []string{
-		"input[name='q']",
-		"input[title='Search']",
-		"input[aria-label='Search']",
-		"textarea[title='Search']",
-		"textarea[name='q']",
-		"textarea[aria-label='Search']",
-		"textarea",
-	}
+	blockedRegex = regexp.MustCompile("(google.com/sorry|captcha|unusual traffic)")
 )
 
 func init() {
@@ -58,16 +48,7 @@ func NewPW(prowl *Prowl, headless *bool) (pw *PW, err error) {
 	} else if err = pw.NewBrowserContext(); err != nil {
 		return
 	}
-	log.Info().Msg("PW - NewProwl")
 	return
-}
-
-func (pw *PW) Close() {
-	if err := pw.BrowserContext.Close(); err != nil {
-		log.Warn().Err(err).Msg("Failed to close PW Context")
-	} else if err = pw.Browser.Close(); err != nil {
-		log.Warn().Err(err).Msg("Failed to close PW Browser")
-	}
 }
 
 func (pw *PW) IsBlocked(ss ...string) error {
@@ -77,73 +58,4 @@ func (pw *PW) IsBlocked(ss ...string) error {
 		}
 	}
 	return nil
-}
-
-func (pw *PW) Search() (err error) {
-
-	var page playwright.Page
-	var res playwright.Response
-
-	if page, err = pw.NewPage(); err != nil {
-		return
-	} else if res, err = pw.GoTo(page, "https://www.google.com"); err != nil {
-		return
-	} else if err = pw.IsBlocked(page.URL(), res.URL()); err != nil {
-		return
-	} else if err = pw.Click(page, googleSearchInputSelectors...); err != nil {
-		return
-	} else if err = pw.Type(page, pw.Prowler.ID); err != nil {
-		return
-	} else if err = pw.Press(page, "Enter"); err != nil {
-		return
-	} else if err = pw.WaitForLoadState(page); err != nil {
-		return
-	} else if err = pw.IsBlocked(page.URL()); err != nil {
-		return
-	}
-
-	log.Info().Msg("PW - Search")
-
-	pw.Save(page)
-
-	targetCount := len(pw.Prowler.Targets)
-	log.Info().Msgf("PW - Targets [%d]", targetCount)
-
-	if targetCount == 0 {
-		return
-	}
-
-	var locators []playwright.Locator
-
-	if locators, err = page.Locator(fmt.Sprintf(`[data-dtld]`), playwright.PageLocatorOptions{}).All(); err != nil {
-		return
-	}
-
-	if len(locators) == 0 {
-		log.Warn().Msg("PW - No Target Locators Found")
-	}
-
-	var att string
-	for _, l := range locators {
-
-		att, err = l.GetAttribute("data-dtld")
-		if err != nil {
-			log.Warn().Err(err).Msg("PW - Failed to get Target Locator Attribute")
-			continue
-		}
-
-		log.Debug().Str("found", att).Msg("PW - Locator")
-		if !pw.Prowler.Targets.Follow(att) {
-			continue
-		}
-
-		log.Info().Msgf("PW - Target Found [%s]", att)
-
-		if page, err = pw.NewPage(func() error { return l.Click() }); err == nil {
-			pw.Save(page)
-			err = errors.Join(page.Close())
-		}
-	}
-
-	return
 }

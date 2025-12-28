@@ -48,3 +48,11 @@ func (pw *PW) NewBrowser() (err error) {
 
 	return
 }
+
+func (pw *PW) Close() {
+	if err := pw.BrowserContext.Close(); err != nil {
+		log.Warn().Err(err).Msg("Failed to close PW Context")
+	} else if err = pw.Browser.Close(); err != nil {
+		log.Warn().Err(err).Msg("Failed to close PW Browser")
+	}
+}
