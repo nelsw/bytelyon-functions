@@ -11,6 +11,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
+	"github.com/rs/zerolog/log"
 )
 
 type Service interface {
@@ -60,13 +61,16 @@ func (c *client) Get(k string) (b []byte, err error) {
 	return
 }
 
-func (c *client) Put(k string, data []byte) error {
-	_, err := c.PutObject(c.ctx, &s3.PutObjectInput{
+func (c *client) Put(k string, data []byte) (err error) {
+	_, err = c.PutObject(c.ctx, &s3.PutObjectInput{
 		Bucket: &c.bucket,
 		Key:    key(k),
 		Body:   bytes.NewReader(data),
 	})
-	return err
+	if err != nil {
+		log.Warn().Err(err).Str("key", k).Bytes("body", data).Msg("s3 - Failed Put")
+	}
+	return
 }
 
 func (c *client) Keys(prefix, after string, size int) (keys []string, err error) {
@@ -106,7 +110,9 @@ func key(s string) *string {
 	if strings.HasPrefix(s, "/") {
 		s = s[1:]
 	}
-	if strings.HasSuffix(s, ".html") || strings.HasSuffix(s, ".json") {
+	if strings.HasSuffix(s, ".html") ||
+		strings.HasSuffix(s, ".png") ||
+		strings.HasSuffix(s, ".json") {
 		return &s
 	}
 	if !strings.HasSuffix(s, "/_.json") {

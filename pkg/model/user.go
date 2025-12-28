@@ -20,6 +20,17 @@ type User struct {
 	ID ulid.ULID `json:"id"`
 }
 
+func (u *User) String() string {
+	if u.ID.IsZero() {
+		return "user"
+	}
+	return "user/" + u.ID.String()
+}
+
+func NewUser(id ulid.ULID) *User {
+	return &User{ID: id}
+}
+
 func MakeDemoUser() User {
 	return User{ID: ulid.MustParse("01K48PC0BK13BWV2CGWFP8QQH0")}
 }
