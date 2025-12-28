@@ -13,14 +13,15 @@ type PageData map[DatumType][]*Datum
 
 func MakePageData() PageData {
 	return map[DatumType][]*Datum{
-		SponsoredDatumType:      {},
-		OrganicDatumType:        {},
-		VideoDatumType:          {},
-		ForumDatumType:          {},
-		ArticleDatumType:        {},
-		PopularProductDatumType: {},
-		RelatedQueryDatumType:   {},
-		AlsoAskedDatumType:      {},
+		SponsoredDatumType:       {},
+		OrganicDatumType:         {},
+		VideoDatumType:           {},
+		ForumDatumType:           {},
+		ArticleDatumType:         {},
+		PopularProductsDatumType: {},
+		MoreProductsDatumType:    {},
+		RelatedQueryDatumType:    {},
+		AlsoAskedDatumType:       {},
 	}
 }
 

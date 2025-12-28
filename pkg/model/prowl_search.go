@@ -36,4 +36,6 @@ func (p *ProwlSearch) Go() {
 			log.Info().Bool("headless", headless).Msg("Prowler - Search Succeeded")
 		}
 	}
+
+	fn(true)
 }

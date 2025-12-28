@@ -5,6 +5,7 @@ import (
 	. "bytelyon-functions/pkg/util"
 	"encoding/json"
 	"errors"
+	"fmt"
 
 	"github.com/oklog/ulid/v2"
 	"github.com/playwright-community/playwright-go"
@@ -97,20 +98,22 @@ func (pw *PW) Save(page playwright.Page) {
 
 	DB := db.NewS3()
 
+	var id = NewUlid()
+	var path = fmt.Sprintf("%s/%s/page/%s", pw.Prowler, pw.Prowl.ID, id)
 	var err error
 
 	var b []byte
 	if b, err = page.Screenshot(playwright.PageScreenshotOptions{FullPage: Ptr(true)}); err != nil {
 		log.Warn().Err(err).Msg("PW - Failed to Screenshot Page")
 	} else {
-		DB.Put(pw.Prowler.String()+"/screenshot.png", b)
+		DB.Put(path+"/screenshot.png", b)
 	}
 
 	var s string
 	if s, err = page.Content(); err != nil {
 		log.Warn().Err(err).Msg("PW - Failed to get Page Content")
 	} else {
-		DB.Put(pw.Prowler.String()+"/content.html", []byte(s))
+		DB.Put(path+"/content.html", []byte(s))
 	}
 
 	var p struct {
@@ -121,7 +124,7 @@ func (pw *PW) Save(page playwright.Page) {
 		Data   any       `json:"data"`
 	}
 
-	p.ID = NewUlid()
+	p.ID = id
 	p.URL = page.URL()
 	p.Data = pw.Data(p.URL, s)
 	p.Domain = Domain(p.URL)
@@ -130,9 +133,9 @@ func (pw *PW) Save(page playwright.Page) {
 		log.Warn().Err(err).Msg("PW - Failed to get Page Title")
 	}
 
-	if b, err = json.Marshal(p); err != nil {
+	if b, err = json.Marshal(&p); err != nil {
 		log.Warn().Err(err).Msg("PW - Failed to Marshal Page")
 	} else {
-		DB.Put(pw.Prowler.String()+"/_.json", b)
+		DB.Put(path+"/_.json", b)
 	}
 }

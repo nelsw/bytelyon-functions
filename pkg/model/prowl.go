@@ -2,7 +2,8 @@ package model
 
 import (
 	"bytelyon-functions/pkg/db"
-	"bytelyon-functions/pkg/util"
+	"encoding/json"
+	"fmt"
 	"time"
 
 	"github.com/oklog/ulid/v2"
@@ -16,10 +17,6 @@ type Prowl struct {
 
 func NewProwl(p *Prowler) *Prowl {
 	return &Prowl{p, NewUlid()}
-}
-
-func (p *Prowl) String() string {
-	return p.Prowler.String() + util.Path("prowl", p.ID)
 }
 
 func (p *Prowl) Go() {
@@ -37,5 +34,11 @@ func (p *Prowl) Go() {
 	p.Prowler.Duration = time.Since(p.ID.Timestamp())
 	if err := db.Save(p.Prowler); err != nil {
 		log.Warn().Err(err).Msgf("Prowl - Failed to save Prowler [%s]", p)
+		return
+	}
+
+	if p.Prowler.Type == SearchProwlerType {
+		b, _ := json.Marshal(p)
+		db.NewS3().Put(fmt.Sprintf("%s/%s/_.json", p.Prowler, p.ID), b)
 	}
 }

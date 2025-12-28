@@ -3,6 +3,7 @@ package model
 import (
 	"maps"
 	"slices"
+	"strings"
 	"sync"
 
 	"github.com/rs/zerolog/log"
@@ -74,6 +75,7 @@ func (c *Crawler) Wait() {
 func (c *Crawler) putRelative(url string) (ok bool) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
+	url = strings.TrimSuffix(url, "/")
 	if _, ok = c.relative[url]; !ok {
 		c.relative[url] = url
 	}
@@ -84,6 +86,7 @@ func (c *Crawler) putAllRemote(urls []string) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	for _, url := range urls {
+		url = strings.TrimSuffix(url, "/")
 		c.remote[url] = url
 	}
 }

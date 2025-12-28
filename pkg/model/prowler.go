@@ -2,6 +2,7 @@ package model
 
 import (
 	"bytelyon-functions/pkg/util"
+	"fmt"
 	"time"
 
 	"github.com/oklog/ulid/v2"
@@ -11,7 +12,7 @@ import (
 type Prowler struct {
 	UserID ulid.ULID `json:"user_id"`
 	// ID is either a URL or Query string
-	ID        string        `json:"ID"`
+	ID        string        `json:"id"`
 	Type      ProwlerType   `json:"type"`
 	Prowled   ulid.ULID     `json:"prowled"`
 	Frequency time.Duration `json:"frequency"`
@@ -20,7 +21,11 @@ type Prowler struct {
 }
 
 func (p *Prowler) String() string {
-	return util.Path("user", p.UserID, "prowler", p.Type, p.ID)
+	id := p.ID
+	if p.Type == SitemapProwlerType {
+		id = util.Domain(p.ID)
+	}
+	return fmt.Sprintf("user/%s/prowler/%s/%s", p.UserID, p.Type, id)
 }
 
 func (p *Prowler) Prowl() {

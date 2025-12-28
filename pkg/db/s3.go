@@ -137,7 +137,7 @@ func NewS3(optFns ...func(*config.LoadOptions) error) S3 {
 	return NewS3WithContext(context.Background(), optFns...)
 }
 
-// NewWithContext returns a new S3 client with the provided context.
+// NewS3WithContext returns a new S3 client with the provided context.
 // An optional variadic set of Config values can be provided as
 // input that will be prepended to the configs slice.
 func NewS3WithContext(ctx context.Context, optFns ...func(*config.LoadOptions) error) S3 {

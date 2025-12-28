@@ -8,24 +8,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/joho/godotenv"
 	"github.com/rs/zerolog/log"
 )
 
-var (
-	db S3
-)
-
-func init() {
-	godotenv.Load()
-	db = NewS3()
-}
-
-type Entity interface {
-	fmt.Stringer
-}
-
-func Save(e Entity) error {
+func Save(e fmt.Stringer) error {
 
 	b, err := json.Marshal(e)
 	if err != nil {
@@ -36,7 +22,7 @@ func Save(e Entity) error {
 		return err
 	}
 
-	if err = db.Put(e.String()+"/_.json", b); err != nil {
+	if err = NewS3().Put(e.String()+"/_.json", b); err != nil {
 		log.Err(err).
 			Str("key", e.String()).
 			Bytes("body", b).
@@ -46,16 +32,16 @@ func Save(e Entity) error {
 	return nil
 }
 
-func Find(e Entity) error {
-	b, err := db.Get(e.String() + `/_.json`)
+func Find(e fmt.Stringer) error {
+	b, err := NewS3().Get(e.String() + `/_.json`)
 	if err == nil {
 		err = json.Unmarshal(b, e)
 	}
 	return err
 }
 
-func Delete(e Entity) error {
-	err := db.Delete(e.String() + "/_.json")
+func Delete(e fmt.Stringer) error {
+	err := NewS3().Delete(e.String() + "/_.json")
 	if err != nil {
 		log.Err(err).
 			Stringer("key", e).
@@ -64,7 +50,7 @@ func Delete(e Entity) error {
 	return err
 }
 
-func Keys(e Entity) ([]string, error) {
+func Keys(DB S3, e fmt.Stringer) ([]string, error) {
 
 	var keys []string
 	var after string
@@ -72,7 +58,7 @@ func Keys(e Entity) ([]string, error) {
 	regex := regexp.MustCompile(fmt.Sprintf(`.*%s/([A-Za-z0-9]{26}/_.json)$`, e))
 	for {
 
-		arr, err := db.Keys(e.String(), after, 1_000)
+		arr, err := DB.Keys(e.String(), after, 1_000)
 		if err != nil {
 			return nil, err
 		}
@@ -93,11 +79,13 @@ func Keys(e Entity) ([]string, error) {
 	return keys, nil
 }
 
-func List[E Entity](e E) ([]E, error) {
+func List[E fmt.Stringer](e E) ([]E, error) {
+
+	DB := NewS3()
 
 	var entities []E
 
-	keys, err := Keys(e)
+	keys, err := Keys(DB, e)
 	if err != nil || len(keys) == 0 {
 		return entities, err
 	}
@@ -111,7 +99,7 @@ func List[E Entity](e E) ([]E, error) {
 		}
 		wg.Go(func() {
 			var b []byte
-			if b, err = db.Get(k); err == nil {
+			if b, err = DB.Get(k); err == nil {
 				strs = append(strs, string(b))
 			}
 		})

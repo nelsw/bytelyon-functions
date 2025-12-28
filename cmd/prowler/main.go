@@ -32,7 +32,7 @@ func handlePatch(r api.Request) (events.APIGatewayV2HTTPResponse, error) {
 	var err error
 	p := &model.Prowler{
 		UserID: r.User().ID,
-		ID:     r.Param("id"),
+		ID:     strings.ToLower(strings.TrimSpace(r.Param("id"))),
 	}
 
 	if p.Type, err = model.NewProwlerType(r.Param("type")); err != nil {

@@ -30,19 +30,14 @@ type rss struct {
 }
 
 type item struct {
-	ProwlerNews *ProwlNews `json:"-"`
-	ID          ulid.ULID  `json:"id"`
-	URL         string     `json:"url" xml:"link"`
-	Title       string     `json:"title" xml:"title"`
-	Source      string     `json:"source"`
-	Time        *DateTime  `json:"-" xml:"pubDate"`
-	Src         *struct {
+	ID     ulid.ULID `json:"id"`
+	URL    string    `json:"url" xml:"link"`
+	Title  string    `json:"title" xml:"title"`
+	Source string    `json:"source"`
+	Time   *DateTime `json:"-" xml:"pubDate"`
+	Src    *struct {
 		Value string `json:"value" xml:",chardata"`
 	} `json:"-" xml:"source"`
-}
-
-func (i item) String() string {
-	return i.ProwlerNews.String() + util.Path("item", i.ID)
 }
 
 type ProwlNews struct {
@@ -53,11 +48,8 @@ func NewProwlNews(p *Prowl) *ProwlNews {
 	return &ProwlNews{p}
 }
 
-func (p *ProwlNews) String() string {
-	return p.Prowl.String()
-}
-
 func (p *ProwlNews) Go() {
+
 	q := strings.ReplaceAll(p.Prowl.Prowler.ID, ` `, `+`)
 	urls := []string{
 		fmt.Sprintf("https://news.google.com/rss/search?q=%s&hl=en-US&gl=US&ceid=US:en", q),
@@ -69,6 +61,8 @@ func (p *ProwlNews) Go() {
 	for _, u := range urls {
 		items = append(items, p.rss(u)...)
 	}
+
+	DB := db.NewS3()
 
 	for _, i := range items {
 
@@ -90,7 +84,6 @@ func (p *ProwlNews) Go() {
 			}
 		}
 
-		i.ProwlerNews = p
 		i.ID = i.Time.ULID()
 		if i.Src != nil {
 			i.Source = i.Src.Value
@@ -98,7 +91,9 @@ func (p *ProwlNews) Go() {
 			i.Source = util.Domain(i.URL)
 		}
 
-		if err := db.Save(i); err != nil {
+		if b, err := json.Marshal(i); err != nil {
+			log.Warn().Err(err).Msg("Prowler - Failed to marshal article")
+		} else if err = DB.Put(fmt.Sprintf("%s/%s/_.json", p.Prowler, i.ID), b); err != nil {
 			log.Warn().Err(err).Msg("Prowler - Failed to save article")
 		}
 	}
@@ -125,7 +120,10 @@ func (p *ProwlNews) rss(s string) []*item {
 	}
 	var r rss
 	if err = xml.Unmarshal(b, &r); err != nil {
-		log.Warn().Err(err).Msg("Prowler - Failed to unmarshal rss feed")
+		log.Warn().
+			Err(err).
+			Str("url", s).
+			Msg("Prowler - Failed to unmarshal rss feed")
 	}
 	return r.Channel.Items
 }

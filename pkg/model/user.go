@@ -3,7 +3,6 @@ package model
 import (
 	"bytelyon-functions/pkg/service/em"
 	"bytelyon-functions/pkg/service/s3"
-	"bytelyon-functions/pkg/util"
 	"encoding/json"
 	"regexp"
 	"strings"
@@ -22,7 +21,7 @@ type User struct {
 }
 
 func (u *User) String() string {
-	return util.Path("user", u.ID)
+	return "user/" + u.ID.String()
 }
 
 func MakeDemoUser() User {
