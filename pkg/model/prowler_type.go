@@ -8,9 +8,9 @@ import (
 type ProwlerType string
 
 const (
-	SearchProwlType  ProwlerType = "search"
-	SitemapProwlType ProwlerType = "sitemap"
-	NewsProwlType    ProwlerType = "news"
+	SearchProwlerType  ProwlerType = "search"
+	SitemapProwlerType ProwlerType = "sitemap"
+	NewsProwlerType    ProwlerType = "news"
 )
 
 var (

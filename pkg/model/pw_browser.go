@@ -7,10 +7,10 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-func (p *Prowl) NewBrowser() (err error) {
+func (pw *PW) NewBrowser() (err error) {
 
-	p.Browser, err = p.Chromium.Launch(playwright.BrowserTypeLaunchOptions{
-		Headless: p.Headless,
+	pw.Browser, err = pw.Chromium.Launch(playwright.BrowserTypeLaunchOptions{
+		Headless: pw.Headless,
 		Timeout:  Ptr(60_000.0),
 		Args: []string{
 			"--disable-accelerated-2d-canvas",
@@ -44,7 +44,7 @@ func (p *Prowl) NewBrowser() (err error) {
 		},
 	})
 
-	log.Err(err).Msg("Prowl - NewBrowser")
+	log.Err(err).Msg("PW - NewBrowser")
 
 	return
 }

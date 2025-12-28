@@ -23,9 +23,9 @@ func (w *Worker) Start() {
 		Msg("Worker - Found Users")
 
 	var prowlers []*Prowler
-	prowlers = append(prowlers, w.list(users, SearchProwlType)...)
-	prowlers = append(prowlers, w.list(users, SitemapProwlType)...)
-	prowlers = append(prowlers, w.list(users, ArticleProwlType)...)
+	prowlers = append(prowlers, w.list(users, SearchProwlerType)...)
+	prowlers = append(prowlers, w.list(users, SitemapProwlerType)...)
+	prowlers = append(prowlers, w.list(users, NewsProwlerType)...)
 
 	log.Info().
 		Int("count", len(prowlers)).

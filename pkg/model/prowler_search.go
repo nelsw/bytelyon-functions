@@ -5,27 +5,39 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-func (p *Prowler) ProwlSearch(headless bool) ulid.ULID {
+func (p *Prowler) ProwlSearch() ulid.ULID {
 
-	prowl, err := NewProwl(p, &headless)
-	if err != nil {
-		log.Warn().Err(err).Msg("Prowler - Prowl failed to initialize")
-		return prowl.ID
+	var fn func(ulid.ULID, bool)
+
+	fn = func(prowlID ulid.ULID, headless bool) {
+		pw, err := NewPW(p, &headless)
+		if err != nil {
+			log.Warn().Err(err).Msg("Prowler - PW failed to initialize")
+			return
+		}
+		defer pw.Close()
+
+		log.Info().Msg("Prowler - Searching ... ")
+		if err = pw.Search(prowlID); err != nil && headless {
+			log.Warn().Err(err).Msg("Prowler - Headless Search Failed; retrying with head ...")
+			fn(prowlID, false)
+			return
+		}
+
+		if err != nil {
+			log.Warn().Err(err).Msg("Prowler - Headed Search Failed!")
+		} else {
+			log.Info().Bool("headless", headless).Msg("Prowler - Search Succeeded")
+		}
 	}
-	defer prowl.Close()
 
-	log.Info().Msg("Prowler - Searching ... ")
+	prowlID := NewUlid()
 
-	if err = prowl.Search(); err != nil && headless {
-		log.Warn().Err(err).Msg("Prowler - Headless Search Failed; retrying with head ...")
-		return p.ProwlSearch(false)
-	}
+	fn(prowlID, true)
 
-	if err != nil {
-		log.Warn().Err(err).Msg("Prowler - Headed Search Failed!")
-	} else {
-		log.Info().Bool("headless", headless).Msg("Prowler - Search Succeeded")
-	}
+	return prowlID
+}
 
-	return prowl.ID
+func handleProwlSearch(prowlID ulid.ULID, headless bool) {
+
 }

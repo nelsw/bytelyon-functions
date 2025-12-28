@@ -26,7 +26,7 @@ type Prowler struct {
 }
 
 func (p *Prowler) String() string {
-	return util.Path("user", p.UserID, p.Type, p.ID)
+	return util.Path("user", p.UserID, "prowler", p.Type, "prowl", p.ID)
 }
 
 func (p *Prowler) Prowl() {
@@ -43,17 +43,12 @@ func (p *Prowler) Prowl() {
 
 	var id ulid.ULID
 	switch p.Type {
-	case SearchProwlType:
-		id = p.ProwlSearch(true)
-	case SitemapProwlType:
+	case SearchProwlerType:
+		id = p.ProwlSearch()
+	case SitemapProwlerType:
 		id = p.ProwlSitemap()
-	case NewsProwlType:
+	case NewsProwlerType:
 		id = p.ProwlNews()
-	}
-
-	if id.IsZero() {
-		log.Warn().Msgf("Prowler - Invalid Prowl Type [%s]", p.Type)
-		return
 	}
 
 	p.Prowled = id

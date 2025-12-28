@@ -62,9 +62,9 @@ var (
 	}
 )
 
-func (p *Prowl) NewBrowserContext() (err error) {
+func (pw *PW) NewBrowserContext() (err error) {
 
-	p.BrowserContext, err = p.Browser.NewContext(playwright.BrowserNewContextOptions{
+	pw.BrowserContext, err = pw.Browser.NewContext(playwright.BrowserNewContextOptions{
 		AcceptDownloads:   Ptr(true),
 		ColorScheme:       playwright.ColorSchemeDark,
 		ForcedColors:      playwright.ForcedColorsNone,
@@ -74,16 +74,15 @@ func (p *Prowl) NewBrowserContext() (err error) {
 		Locale:            Ptr("en-US"),
 		Permissions:       []string{"geolocation", "notifications"},
 		ReducedMotion:     playwright.ReducedMotionNoPreference,
-		//StorageState:      search.FindState(),
-		TimezoneId: Ptr("America/New_York"),
-		UserAgent:  Ptr(userAgents[rand.Intn(len(userAgents))]),
+		TimezoneId:        Ptr("America/New_York"),
+		UserAgent:         Ptr(userAgents[rand.Intn(len(userAgents))]),
 	})
 	if err == nil {
-		p.BrowserContext.SetDefaultTimeout(60_000)
-		err = p.BrowserContext.AddInitScript(playwright.Script{Content: Ptr(browserContextScript)})
+		pw.BrowserContext.SetDefaultTimeout(60_000)
+		err = pw.BrowserContext.AddInitScript(playwright.Script{Content: Ptr(browserContextScript)})
 	}
 
-	log.Err(err).Msg("Prowl - NewBrowserContext")
+	log.Err(err).Msg("PW - NewBrowserContext")
 
 	return
 }

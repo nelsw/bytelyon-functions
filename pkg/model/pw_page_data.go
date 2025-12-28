@@ -24,7 +24,7 @@ func MakePageData() PageData {
 	}
 }
 
-func (p *Prowl) Data(url, content string) any {
+func (pw *PW) Data(url, content string) any {
 	if !strings.HasPrefix(url, "https://www.google.com") {
 		return nil
 	}

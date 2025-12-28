@@ -22,5 +22,5 @@ type NewsItem struct {
 }
 
 func (n NewsItem) String() string {
-	return util.Path("user", n.UserID, "prowler", NewsProwlType, n.ProwlerID, "prowl", n.ProwlID, "item", n.ID)
+	return util.Path("user", n.UserID, "prowler", NewsProwlerType, n.ProwlerID, "prowl", n.ProwlID, "item", n.ID)
 }

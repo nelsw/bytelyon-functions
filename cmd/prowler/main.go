@@ -67,7 +67,7 @@ func handlePost(r api.Request) (events.APIGatewayV2HTTPResponse, error) {
 
 	if p.Frequency < time.Duration(10)*time.Minute {
 		return api.BadRequest(errors.New("sitemap prowl frequency must be at least 10 minutes"))
-	} else if p.Type == model.SitemapProwlType && !strings.HasPrefix(p.URL, "https://") {
+	} else if p.Type == model.SitemapProwlerType && !strings.HasPrefix(p.URL, "https://") {
 		return api.BadRequest(errors.New("sitemap prowl url must be set"))
 	} else if p.Query == "" {
 		return api.BadRequest(errors.New("query must be set"))

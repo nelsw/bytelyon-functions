@@ -9,6 +9,7 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+// SearchPage todo - refactor to Page
 type SearchPage struct {
 	UserID     ulid.ULID `json:"user_id"`
 	ProwlerID  ulid.ULID `json:"prowler_id"`
@@ -22,9 +23,8 @@ type SearchPage struct {
 	Screenshot []byte    `json:"-"`
 }
 
-// String returns the path to the page
 func (p *SearchPage) String() string {
-	return util.Path("user", p.UserID, "prowler", SearchProwlType, p.ProwlerID, "prowl", p.ProwlID, "page", p.ID)
+	return util.Path("user", p.UserID, "prowler", SearchProwlerType, p.ProwlerID, "prowl", p.ProwlID, "page", p.ID)
 }
 
 func (p *SearchPage) Save() {
