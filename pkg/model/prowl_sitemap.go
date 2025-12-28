@@ -1,31 +1,49 @@
 package model
 
 import (
+	"bytelyon-functions/pkg/db"
 	"bytelyon-functions/pkg/util"
 	"regexp"
 	"strings"
-
-	"github.com/oklog/ulid/v2"
 )
 
 var (
-	badExtRegex    = regexp.MustCompile(`^.*\.(jpeg|png|gif|jpg|pdf)$`)
 	badAnchorRegex = regexp.MustCompile(`^(#|mailto:|tel:).*`)
+	badExtRegex    = regexp.MustCompile(`^.*\.(jpeg|png|gif|jpg|pdf)$`)
 )
 
-func (p *Prowler) ProwlSitemap() ulid.ULID {
-	prowlID := NewUlid()
-	p.Domain = util.Domain(p.URL)
-	c := NewCrawler(p)
-	c.Add()
-	go c.Crawl(p.URL, 15)
-	c.Wait()
-	p.Relative = c.Relative()
-	p.Remote = c.Remote()
-	return prowlID
+type ProwlSitemap struct {
+	Prowl    *Prowl   `json:"prowl"`
+	Domain   string   `json:"domain"`
+	Relative []string `json:"relative"`
+	Remote   []string `json:"remote"`
 }
 
-func (p *Prowler) Fetch(url string) ([]string, []string, error) {
+func NewProwlSitemap(p *Prowl) *ProwlSitemap {
+	return &ProwlSitemap{
+		Prowl:  p,
+		Domain: util.Domain(p.Prowler.ID),
+	}
+}
+
+func (p *ProwlSitemap) String() string {
+	return p.Prowl.String()
+}
+
+func (p *ProwlSitemap) Go() {
+
+	c := NewCrawler(p)
+	c.Add()
+	go c.Crawl(p.Prowl.Prowler.ID, 15)
+	c.Wait()
+
+	p.Relative = c.Relative()
+	p.Remote = c.Remote()
+
+	db.Save(p)
+}
+
+func (p *ProwlSitemap) Fetch(url string) ([]string, []string, error) {
 
 	if badExtRegex.MatchString(url) {
 		return nil, nil, nil
@@ -44,7 +62,7 @@ func (p *Prowler) Fetch(url string) ([]string, []string, error) {
 		}
 
 		if strings.HasPrefix(a, "?") || strings.HasPrefix(a, "/") {
-			relative = append(relative, p.URL+a)
+			relative = append(relative, p.Prowl.Prowler.ID+a)
 			continue
 		}
 

@@ -1,16 +1,22 @@
 package model
 
 import (
-	"github.com/oklog/ulid/v2"
 	"github.com/rs/zerolog/log"
 )
 
-func (p *Prowler) ProwlSearch() ulid.ULID {
+type ProwlSearch struct {
+	*Prowl
+}
 
-	var fn func(ulid.ULID, bool)
+func NewProwlSearch(p *Prowl) *ProwlSearch {
+	return &ProwlSearch{p}
+}
 
-	fn = func(prowlID ulid.ULID, headless bool) {
-		pw, err := NewPW(p, &headless)
+func (p *ProwlSearch) Go() {
+	var fn func(bool)
+
+	fn = func(headless bool) {
+		pw, err := NewPW(p.Prowl, &headless)
 		if err != nil {
 			log.Warn().Err(err).Msg("Prowler - PW failed to initialize")
 			return
@@ -18,9 +24,9 @@ func (p *Prowler) ProwlSearch() ulid.ULID {
 		defer pw.Close()
 
 		log.Info().Msg("Prowler - Searching ... ")
-		if err = pw.Search(prowlID); err != nil && headless {
+		if err = pw.Search(); err != nil && headless {
 			log.Warn().Err(err).Msg("Prowler - Headless Search Failed; retrying with head ...")
-			fn(prowlID, false)
+			fn(false)
 			return
 		}
 
@@ -30,14 +36,4 @@ func (p *Prowler) ProwlSearch() ulid.ULID {
 			log.Info().Bool("headless", headless).Msg("Prowler - Search Succeeded")
 		}
 	}
-
-	prowlID := NewUlid()
-
-	fn(prowlID, true)
-
-	return prowlID
-}
-
-func handleProwlSearch(prowlID ulid.ULID, headless bool) {
-
 }

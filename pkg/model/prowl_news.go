@@ -19,33 +19,50 @@ import (
 	"golang.org/x/net/html"
 )
 
-type item struct {
-	URL    string    `json:"link" xml:"link"`
-	Title  string    `json:"title" xml:"title"`
-	Time   *DateTime `json:"published" xml:"pubDate"`
-	Source *struct {
-		URL   string `json:"url,omitempty" xml:"url,attr"`
-		Value string `json:"value,omitempty" xml:",chardata"`
-	} `json:"source,omitempty" xml:"source"`
-}
+var (
+	bingRssRegexp = regexp.MustCompile("</?News(:\\w+)>")
+)
+
 type rss struct {
 	Channel struct {
 		Items []*item `xml:"item"`
 	} `xml:"channel"`
 }
 
-var (
-	bingRssRegexp = regexp.MustCompile("</?News(:\\w+)>")
-)
+type item struct {
+	ProwlerNews *ProwlNews `json:"-"`
+	ID          ulid.ULID  `json:"id"`
+	URL         string     `json:"url" xml:"link"`
+	Title       string     `json:"title" xml:"title"`
+	Source      string     `json:"source"`
+	Time        *DateTime  `json:"-" xml:"pubDate"`
+	Src         *struct {
+		Value string `json:"value" xml:",chardata"`
+	} `json:"-" xml:"source"`
+}
 
-func (p *Prowler) ProwlNews() ulid.ULID {
+func (i item) String() string {
+	return i.ProwlerNews.String() + util.Path("item", i.ID)
+}
 
-	prowlID := NewUlid()
+type ProwlNews struct {
+	*Prowl
+}
 
+func NewProwlNews(p *Prowl) *ProwlNews {
+	return &ProwlNews{p}
+}
+
+func (p *ProwlNews) String() string {
+	return p.Prowl.String()
+}
+
+func (p *ProwlNews) Go() {
+	q := strings.ReplaceAll(p.Prowl.Prowler.ID, ` `, `+`)
 	urls := []string{
-		fmt.Sprintf("https://news.google.com/rss/search?q=%s&hl=en-US&gl=US&ceid=US:en", p.Query),
-		fmt.Sprintf("https://www.bing.com/news/search?format=rss&q=%s", p.Query),
-		fmt.Sprintf("https://www.bing.com/search?format=rss&q=%s", p.Query),
+		fmt.Sprintf("https://news.google.com/rss/search?q=%s&hl=en-US&gl=US&ceid=US:en", q),
+		fmt.Sprintf("https://www.bing.com/news/search?format=rss&q=%s", q),
+		fmt.Sprintf("https://www.bing.com/search?format=rss&q=%s", q),
 	}
 
 	var items []*item
@@ -55,7 +72,7 @@ func (p *Prowler) ProwlNews() ulid.ULID {
 
 	for _, i := range items {
 
-		if p.Prowled.Timestamp().UnixMilli() > i.Time.UnixMilli() {
+		if p.Prowl.Prowler.Prowled.Timestamp().UnixMilli() > i.Time.UnixMilli() {
 			continue
 		}
 
@@ -73,32 +90,21 @@ func (p *Prowler) ProwlNews() ulid.ULID {
 			}
 		}
 
-		var source string
-		if i.Source != nil {
-			source = i.Source.Value
+		i.ProwlerNews = p
+		i.ID = i.Time.ULID()
+		if i.Src != nil {
+			i.Source = i.Src.Value
 		} else {
-			source = util.Domain(i.URL)
+			i.Source = util.Domain(i.URL)
 		}
 
-		err := db.Save(&NewsItem{
-			UserID:    p.UserID,
-			ProwlerID: p.ID,
-			ProwlID:   prowlID,
-			ID:        i.Time.ULID(),
-			URL:       i.URL,
-			Title:     i.Title,
-			Source:    source,
-		})
-
-		if err != nil {
+		if err := db.Save(i); err != nil {
 			log.Warn().Err(err).Msg("Prowler - Failed to save article")
 		}
 	}
-
-	return prowlID
 }
 
-func (p *Prowler) rss(s string) []*item {
+func (p *ProwlNews) rss(s string) []*item {
 	res, err := http.Get(s)
 	if err != nil {
 		log.Warn().Err(err).Msg("Prowler - Failed to fetch rss feed")

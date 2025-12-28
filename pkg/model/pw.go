@@ -7,7 +7,6 @@ import (
 	"log/slog"
 	"regexp"
 
-	"github.com/oklog/ulid/v2"
 	"github.com/playwright-community/playwright-go"
 	"github.com/rs/zerolog/log"
 	slogzerolog "github.com/samber/slog-zerolog/v2"
@@ -38,17 +37,17 @@ func init() {
 }
 
 type PW struct {
-	*Prowler
+	*Prowl
 	Headless *bool
 	*playwright.Playwright
 	playwright.Browser
 	playwright.BrowserContext
 }
 
-func NewPW(prowler *Prowler, headless *bool) (pw *PW, err error) {
+func NewPW(prowl *Prowl, headless *bool) (pw *PW, err error) {
 
 	pw = &PW{
-		Prowler:  prowler,
+		Prowl:    prowl,
 		Headless: headless,
 	}
 
@@ -80,7 +79,7 @@ func (pw *PW) IsBlocked(ss ...string) error {
 	return nil
 }
 
-func (pw *PW) Search(prowlID ulid.ULID) (err error) {
+func (pw *PW) Search() (err error) {
 
 	var page playwright.Page
 	var res playwright.Response
@@ -93,7 +92,7 @@ func (pw *PW) Search(prowlID ulid.ULID) (err error) {
 		return
 	} else if err = pw.Click(page, googleSearchInputSelectors...); err != nil {
 		return
-	} else if err = pw.Type(page, pw.Query); err != nil {
+	} else if err = pw.Type(page, pw.Prowler.ID); err != nil {
 		return
 	} else if err = pw.Press(page, "Enter"); err != nil {
 		return
@@ -105,9 +104,9 @@ func (pw *PW) Search(prowlID ulid.ULID) (err error) {
 
 	log.Info().Msg("PW - Search")
 
-	pw.Save(prowlID, page)
+	pw.Save(page)
 
-	targetCount := len(pw.Targets)
+	targetCount := len(pw.Prowler.Targets)
 	log.Info().Msgf("PW - Targets [%d]", targetCount)
 
 	if targetCount == 0 {
@@ -134,14 +133,14 @@ func (pw *PW) Search(prowlID ulid.ULID) (err error) {
 		}
 
 		log.Debug().Str("found", att).Msg("PW - Locator")
-		if !pw.Targets.Follow(att) {
+		if !pw.Prowler.Targets.Follow(att) {
 			continue
 		}
 
 		log.Info().Msgf("PW - Target Found [%s]", att)
 
 		if page, err = pw.NewPage(func() error { return l.Click() }); err == nil {
-			pw.Save(prowlID, page)
+			pw.Save(page)
 			err = errors.Join(page.Close())
 		}
 	}

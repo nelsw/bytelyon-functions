@@ -12,7 +12,6 @@ import (
 
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
-	"github.com/oklog/ulid/v2"
 )
 
 func Handler(r api.Request) (events.APIGatewayV2HTTPResponse, error) {
@@ -33,11 +32,10 @@ func handlePatch(r api.Request) (events.APIGatewayV2HTTPResponse, error) {
 	var err error
 	p := &model.Prowler{
 		UserID: r.User().ID,
+		ID:     r.Param("id"),
 	}
 
 	if p.Type, err = model.NewProwlerType(r.Param("type")); err != nil {
-		return api.BadRequest(err)
-	} else if p.ID, err = ulid.Parse(r.Param("id")); err != nil {
 		return api.BadRequest(err)
 	}
 
@@ -67,19 +65,18 @@ func handlePost(r api.Request) (events.APIGatewayV2HTTPResponse, error) {
 
 	if p.Frequency < time.Duration(10)*time.Minute {
 		return api.BadRequest(errors.New("sitemap prowl frequency must be at least 10 minutes"))
-	} else if p.Type == model.SitemapProwlerType && !strings.HasPrefix(p.URL, "https://") {
+	} else if p.Type == model.SitemapProwlerType && !strings.HasPrefix(p.ID, "https://") {
 		return api.BadRequest(errors.New("sitemap prowl url must be set"))
-	} else if p.Query == "" {
+	} else if p.ID == "" {
 		return api.BadRequest(errors.New("query must be set"))
 	}
 	// todo - improve type specific validation
 
-	if strings.HasSuffix(p.URL, "/") {
-		p.URL = strings.TrimSuffix(p.URL, "/")
+	if strings.HasSuffix(p.ID, "/") {
+		p.ID = strings.TrimSuffix(p.ID, "/")
 	}
 
 	p.UserID = r.User().ID
-	p.ID = model.NewUlid()
 
 	if err := db.Save(p); err != nil {
 		return api.BadRequest(err)
@@ -108,11 +105,11 @@ func handleGet(r api.Request) (events.APIGatewayV2HTTPResponse, error) {
 	}
 
 	// find one
-	if p.ID, err = ulid.Parse(r.Param("id")); err != nil {
-		return api.BadRequest(errors.Join(err, errors.New("invalid id")))
-	} else if err = db.Find(p); err != nil {
-		return api.BadRequest(errors.Join(err, errors.New("not found")))
-	}
+	//if p.ID, err = ulid.Parse(r.Param("id")); err != nil {
+	//	return api.BadRequest(errors.Join(err, errors.New("invalid id")))
+	//} else if err = db.Find(p); err != nil {
+	//	return api.BadRequest(errors.Join(err, errors.New("not found")))
+	//}
 	return api.OK(p)
 }
 

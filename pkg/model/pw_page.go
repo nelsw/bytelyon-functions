@@ -1,7 +1,9 @@
 package model
 
 import (
+	"bytelyon-functions/pkg/db"
 	. "bytelyon-functions/pkg/util"
+	"encoding/json"
 	"errors"
 
 	"github.com/oklog/ulid/v2"
@@ -91,29 +93,46 @@ func (pw *PW) WaitForLoadState(page playwright.Page, ls ...playwright.LoadState)
 	return err
 }
 
-func (pw *PW) Save(prowlID ulid.ULID, page playwright.Page) {
+func (pw *PW) Save(page playwright.Page) {
 
-	sp := &SearchPage{
-		UserID:    pw.Prowler.UserID,
-		ProwlerID: pw.Prowler.ID,
-		ProwlID:   prowlID,
-		ID:        NewUlid(),
-		URL:       page.URL(),
-	}
+	DB := db.NewS3()
 
 	var err error
-	if sp.Title, err = page.Title(); err != nil {
+
+	var b []byte
+	if b, err = page.Screenshot(playwright.PageScreenshotOptions{FullPage: Ptr(true)}); err != nil {
+		log.Warn().Err(err).Msg("PW - Failed to Screenshot Page")
+	} else {
+		DB.Put(pw.Prowler.String()+"/screenshot.png", b)
+	}
+
+	var s string
+	if s, err = page.Content(); err != nil {
+		log.Warn().Err(err).Msg("PW - Failed to get Page Content")
+	} else {
+		DB.Put(pw.Prowler.String()+"/content.html", []byte(s))
+	}
+
+	var p struct {
+		ID     ulid.ULID `json:"id"`
+		Title  string    `json:"title"`
+		URL    string    `json:"url"`
+		Domain string    `json:"domain"`
+		Data   any       `json:"data"`
+	}
+
+	p.ID = NewUlid()
+	p.URL = page.URL()
+	p.Data = pw.Data(p.URL, s)
+	p.Domain = Domain(p.URL)
+
+	if p.Title, err = page.Title(); err != nil {
 		log.Warn().Err(err).Msg("PW - Failed to get Page Title")
 	}
-	if sp.Screenshot, err = page.Screenshot(playwright.PageScreenshotOptions{FullPage: Ptr(true)}); err != nil {
-		log.Warn().Err(err).Msg("PW - Failed to Screenshot Page")
-	}
-	if sp.Content, err = page.Content(); err != nil {
-		log.Warn().Err(err).Msg("PW - Failed to get Page Content")
-	}
 
-	sp.Data = pw.Data(sp.URL, sp.Content)
-	sp.Domain = Domain(sp.URL)
-
-	sp.Save()
+	if b, err = json.Marshal(p); err != nil {
+		log.Warn().Err(err).Msg("PW - Failed to Marshal Page")
+	} else {
+		DB.Put(pw.Prowler.String()+"/_.json", b)
+	}
 }
