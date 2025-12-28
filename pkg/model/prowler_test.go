@@ -10,7 +10,7 @@ func TestProwler_Prowl_Search(t *testing.T) {
 	t.Setenv("S3_BUCKET", "bytelyon-db-test")
 	p := &Prowler{
 		UserID: ulid.MustParse("01K48PC0BK13BWV2CGWFP8QQH0"),
-		ID:     "ev fire blankets",
+		ID:     "ev fire blankets for sale",
 		Type:   SearchProwlerType,
 	}
 	p.Prowl()
@@ -20,7 +20,7 @@ func TestProwler_Prowl_Sitemap(t *testing.T) {
 	t.Setenv("S3_BUCKET", "bytelyon-db-test")
 	p := &Prowler{
 		UserID: ulid.MustParse("01K48PC0BK13BWV2CGWFP8QQH0"),
-		ID:     "https://publix.com",
+		ID:     "https://li-fire.com",
 		Type:   SitemapProwlerType,
 	}
 	p.Prowl()

@@ -64,15 +64,17 @@ func (p *ProwlSitemap) Go() ulid.ULID {
 		p.Remote = c.Remote()
 	}
 
+	var headless = true
 	if fn(true); len(p.Relative) <= 1 {
 		log.Debug().Msg("ProwlSitemap - No relative links found with Headless Locator")
+		headless = false
 		if fn(false); len(p.Relative) <= 1 {
-			log.Debug().Msg("ProwlSitemap - No relative links found with Headled Locator")
+			log.Debug().Msg("ProwlSitemap - No relative links found with Headed Locator")
 		}
 	}
 
 	log.Info().
-		Bool("headless", true).
+		Bool("headless", headless).
 		Str("domain", p.Domain).
 		Int("relate", len(p.Relative)).
 		Int("remote", len(p.Remote)).
