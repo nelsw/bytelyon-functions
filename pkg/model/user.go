@@ -3,6 +3,7 @@ package model
 import (
 	"bytelyon-functions/pkg/service/em"
 	"bytelyon-functions/pkg/service/s3"
+	"bytelyon-functions/pkg/util"
 	"encoding/json"
 	"regexp"
 	"strings"
@@ -21,14 +22,7 @@ type User struct {
 }
 
 func (u *User) String() string {
-	if u.ID.IsZero() {
-		return "user"
-	}
-	return "user/" + u.ID.String()
-}
-
-func NewUser(id ulid.ULID) *User {
-	return &User{ID: id}
+	return util.Path("user", u.ID)
 }
 
 func MakeDemoUser() User {
@@ -79,15 +73,6 @@ func FindUser(s string) (*User, error) {
 	}
 
 	return e.User(), nil
-}
-
-func FindAllUsers() ([]*User, error) {
-	users, err := em.FindAll(&User{}, userKeyRegex)
-	if err != nil {
-		log.Err(err).Msg("failed to find users")
-		return []*User{}, err
-	}
-	return users, nil
 }
 
 func (u *User) Searches() ([]*Search, error) {

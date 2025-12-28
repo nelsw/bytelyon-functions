@@ -1,12 +1,11 @@
 package model
 
 import (
-	"bytelyon-functions/internal"
+	"bytelyon-functions/pkg/db"
 	"encoding/json"
 	"errors"
 	"fmt"
 
-	//"github.com/nelsw/bytelyon-db"
 	"github.com/oklog/ulid/v2"
 	"github.com/rs/zerolog/log"
 )

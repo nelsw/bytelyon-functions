@@ -1,27 +1,21 @@
 package model
 
 import (
-	"bytelyon-functions/pkg/service/s3"
-	"encoding/json"
 	"testing"
 	"time"
+
+	"github.com/oklog/ulid/v2"
 )
 
 func TestProwler_Prowl(t *testing.T) {
-	//NewProwler(MakeDemoUser().ID, SearchProwlType, "ev fire blankets", Targets{
-	//	"li-fire.com":                 true,
-	//	"newpig.com":                  true,
-	//	"brimstonefireprotection.com": false,
-	//}).Prowl(true)
-
-	var p = new(Prowler)
-	b, _ := s3.New().Get("user/01K48PC0BK13BWV2CGWFP8QQH0/prowler/search/01KDEWCKTPA7CA6MCRDNZVBRSH/_.json")
-	_ = json.Unmarshal(b, p)
-
-	t.Logf("%+v", p)
-
+	t.Setenv("S3_BUCKET", "bytelyon-db")
+	p := &Prowler{
+		UserID: ulid.MustParse("01K48PC0BK13BWV2CGWFP8QQH0"),
+		ID:     ulid.MustParse("01KDEWCKTPA7CA6MCRDNZVBRSH"),
+		Type:   SearchProwlType,
+	}
 	for {
-		p.Prowl(true)
+		p.Prowl()
 		time.Sleep(time.Minute * 5)
 	}
 }

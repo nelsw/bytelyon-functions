@@ -1,44 +1,85 @@
 package model
 
 import (
+	"bytelyon-functions/pkg/db"
 	"sync"
+	"time"
 
 	"github.com/rs/zerolog/log"
 )
 
-type Worker interface {
-	Work()
+type Worker struct {
+	stop, done bool
 }
 
-func DoWork() {
-	users, _ := FindAllUsers()
+func (w *Worker) Start() {
 
-	var workers []Worker
-	for _, u := range users {
-		jobs, _ := NewJob(u).FindAll()
-		for _, j := range jobs {
-			if j.Ready() {
-				workers = append(workers, j.Worker())
-			}
-		}
+	w.done = false
+
+	users, _ := db.List(&User{})
+
+	log.Info().
+		Int("count", len(users)).
+		Msg("Worker - Found Users")
+
+	var prowlers []*Prowler
+	prowlers = append(prowlers, w.list(users, SearchProwlType)...)
+	prowlers = append(prowlers, w.list(users, SitemapProwlType)...)
+	prowlers = append(prowlers, w.list(users, ArticleProwlType)...)
+
+	log.Info().
+		Int("count", len(prowlers)).
+		Msg("Worker - Found Prowlers")
+
+	var wg sync.WaitGroup
+	for _, prowler := range prowlers {
+		wg.Go(prowler.Prowl)
 	}
+	wg.Wait()
 
-	if len(workers) == 0 {
-		log.Info().Msg("no jobs ready, will try again later")
+	if w.done = true; w.stop {
 		return
 	}
 
-	log.Info().Int("size", len(workers)).Msg("jobs ready")
+	time.Sleep(time.Minute)
+
+	w.Start()
+}
+
+func (w *Worker) Stop() {
+	w.stop = true
+}
+
+func (w *Worker) Done() bool {
+	return w.stop && w.done
+}
+
+func (w *Worker) list(users []*User, t ProwlerType) []*Prowler {
 
 	var wg sync.WaitGroup
 
-	for _, w := range workers {
-		wg.Go(w.Work)
-	}
+	var prowlers []*Prowler
 
-	log.Info().Msg("waiting on work to complete")
+	for _, user := range users {
+
+		wg.Go(func() {
+
+			p, _ := db.List(&Prowler{UserID: user.ID, Type: t})
+
+			log.Trace().
+				Stringer("user", user.ID).
+				Int("count", len(p)).
+				Msgf("Worker - Found [%s] Prowlers", t)
+
+			prowlers = append(prowlers, p...)
+		})
+	}
 
 	wg.Wait()
 
-	log.Info().Msg("work completed")
+	log.Debug().
+		Int("count", len(prowlers)).
+		Msgf("Worker - Found [%s] Prowlers", t)
+
+	return prowlers
 }

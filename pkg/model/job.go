@@ -4,11 +4,7 @@ import (
 	"bytelyon-functions/pkg/service/em"
 	"encoding/json"
 	"errors"
-	"maps"
 	"regexp"
-	"slices"
-	"sort"
-	"time"
 
 	"github.com/oklog/ulid/v2"
 	"github.com/rs/zerolog/log"
@@ -124,31 +120,4 @@ func (j *Job) Find() (*Job, error) {
 	v.User = j.User
 
 	return v, nil
-}
-
-func (j *Job) Ready() bool {
-	if len(j.Results) == 0 {
-		return true
-	}
-	keys := slices.Collect(maps.Keys(j.Results))
-	sort.Slice(keys, func(i, j int) bool {
-		return keys[i] > keys[j]
-	})
-	return time.UnixMilli(keys[0]).Add(j.Freq.Duration()).After(time.Now().UTC())
-}
-
-func (j *Job) Worker() Worker {
-
-	switch j.Type {
-	case NewsJobType:
-		return NewNews(j.User, j.ID)
-	case SitemapJobType:
-		log.Warn().Msg("sitemap worker not yet implemented")
-	case SearchJobType:
-		log.Warn().Msg("search worker not yet implemented")
-	default:
-		log.Warn().Msgf("invalid job type: %s", j.Type)
-	}
-
-	return nil
 }
