@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"net/url"
 	"regexp"
+	"sort"
 	"strings"
 
 	"github.com/oklog/ulid/v2"
@@ -48,7 +49,7 @@ func NewProwlNews(p *Prowl) *ProwlNews {
 	return &ProwlNews{p}
 }
 
-func (p *ProwlNews) Go() {
+func (p *ProwlNews) Go() ulid.ULID {
 
 	q := strings.ReplaceAll(p.Prowl.Prowler.ID, ` `, `+`)
 	urls := []string{
@@ -62,8 +63,12 @@ func (p *ProwlNews) Go() {
 		items = append(items, p.rss(u)...)
 	}
 
-	DB := db.NewS3()
+	sort.Slice(items, func(i, j int) bool {
+		return items[i].Time.UnixMilli() < items[j].Time.UnixMilli()
+	})
 
+	DB := db.NewS3()
+	var prowled ulid.ULID
 	for _, i := range items {
 
 		if p.Prowl.Prowler.Prowled.Timestamp().UnixMilli() > i.Time.UnixMilli() {
@@ -85,18 +90,28 @@ func (p *ProwlNews) Go() {
 		}
 
 		i.ID = i.Time.ULID()
+
 		if i.Src != nil {
 			i.Source = i.Src.Value
 		} else {
 			i.Source = util.Domain(i.URL)
 		}
 
-		if b, err := json.Marshal(i); err != nil {
+		b, err := json.Marshal(i)
+		if err != nil {
 			log.Warn().Err(err).Msg("Prowler - Failed to marshal article")
-		} else if err = DB.Put(fmt.Sprintf("%s/%s/_.json", p.Prowler, i.ID), b); err != nil {
-			log.Warn().Err(err).Msg("Prowler - Failed to save article")
+			continue
 		}
+
+		if err = DB.Put(fmt.Sprintf("%s/%s/_.json", p.Prowler, i.ID), b); err != nil {
+			log.Warn().Err(err).Msg("Prowler - Failed to save article")
+			continue
+		}
+
+		prowled = i.ID
 	}
+
+	return prowled
 }
 
 func (p *ProwlNews) rss(s string) []*item {

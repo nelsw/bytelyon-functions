@@ -23,14 +23,13 @@ func (p *Prowl) Go() {
 
 	switch p.Prowler.Type {
 	case SearchProwlerType:
-		NewProwlSearch(p).Go()
+		p.Prowler.Prowled = NewProwlSearch(p).Go()
 	case SitemapProwlerType:
-		NewProwlSitemap(p).Go()
+		p.Prowler.Prowled = NewProwlSitemap(p).Go()
 	case NewsProwlerType:
-		NewProwlNews(p).Go()
+		p.Prowler.Prowled = NewProwlNews(p).Go()
 	}
 
-	p.Prowler.Prowled = p.ID
 	p.Prowler.Duration = time.Since(p.ID.Timestamp())
 	if err := db.Save(p.Prowler); err != nil {
 		log.Warn().Err(err).Msgf("Prowl - Failed to save Prowler [%s]", p)

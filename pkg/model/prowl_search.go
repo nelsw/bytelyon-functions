@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/oklog/ulid/v2"
 	"github.com/playwright-community/playwright-go"
 	"github.com/rs/zerolog/log"
 )
@@ -28,47 +29,50 @@ func NewProwlSearch(p *Prowl) *ProwlSearch {
 	return &ProwlSearch{p}
 }
 
-func (p *ProwlSearch) Go() {
-	var fn func(bool)
+func (p *ProwlSearch) Go() ulid.ULID {
+	var fn func(bool) ulid.ULID
 
-	fn = func(headless bool) {
+	fn = func(headless bool) ulid.ULID {
+
 		pw, err := NewPW(p.Prowl, &headless)
 		if err != nil {
-			log.Warn().Err(err).Msg("Prowl - Failed to initialize PW")
-			return
+			log.Warn().Err(err).Msg("ProwlSearch - Failed to initialize PW")
+			return ulid.Zero
 		}
 		defer pw.Close()
 
-		if err = p.pwWorker(pw); err != nil && headless {
-			log.Warn().Err(err).Msg("Prowl - Headless Search Failed; retrying with head ...")
-			fn(false)
-			return
+		log.Info().Bool("headless", headless).Msg("ProwlSearch - Working ... ")
+
+		var prowled ulid.ULID
+		if prowled, err = p.pwWorker(pw); err != nil && headless {
+			log.Warn().Err(err).Msg("ProwlSearch - Headless Failed; retrying with head ...")
+			return fn(false)
 		}
 
 		if err != nil {
-			log.Warn().Err(err).Bool("headless", headless).Msg("Prowl - Search Failed!")
-		} else {
-			log.Info().Bool("headless", headless).Msg("Prowl - Search Successful!")
+			log.Warn().Err(err).Bool("headless", headless).Msg("ProwlSearch - Failed!")
+			return ulid.Zero
 		}
+
+		log.Info().Bool("headless", headless).Msg("ProwlSearch - Success!")
+		return prowled
 	}
 
-	fn(true)
+	return fn(true)
 }
 
-func (p *ProwlSearch) pwWorker(pw *PW) (err error) {
+func (p *ProwlSearch) pwWorker(pw *PW) (prowled ulid.ULID, err error) {
 
 	defer pw.Close()
 
 	var page playwright.Page
 	var res playwright.Response
 
-	log.Info().Msg("Prowl - Googling ... ")
-
 	if page, err = pw.NewPage(); err != nil {
 		return
 	} else if res, err = pw.GoTo(page, "https://www.google.com"); err != nil {
 		return
-	} else if err = pw.IsBlocked(page.URL(), res.URL()); err != nil {
+	} else if err = pw.IsBlocked(page, res); err != nil {
 		return
 	} else if err = pw.Click(page, googleSearchInputSelectors...); err != nil {
 		return
@@ -78,52 +82,48 @@ func (p *ProwlSearch) pwWorker(pw *PW) (err error) {
 		return
 	} else if err = pw.WaitForLoadState(page); err != nil {
 		return
-	} else if err = pw.IsBlocked(page.URL()); err != nil {
+	} else if err = pw.IsBlocked(page); err != nil {
 		return
 	}
 
-	log.Info().Msg("Prowl - Google Reached!")
-
-	pw.Save(page)
+	prowled = pw.Save(page)
 
 	targetCount := len(pw.Prowler.Targets)
-	log.Info().Msgf("PW - Targets [%d]", targetCount)
+	log.Info().Msgf("ProwlSearch - Targets [%d]", targetCount)
 
 	if targetCount == 0 {
 		return
 	}
 
 	var locators []playwright.Locator
-
 	if locators, err = page.Locator(fmt.Sprintf(`[data-dtld]`), playwright.PageLocatorOptions{}).All(); err != nil {
 		return
 	}
 
 	if len(locators) == 0 {
-		log.Warn().Msg("Prowl - No Target Locators Found")
+		log.Warn().Msg("ProwlSearch - No Target Locators Found")
+		return
 	}
 
 	var att string
 	for _, l := range locators {
 
-		att, err = l.GetAttribute("data-dtld")
-		if err != nil {
-			log.Warn().Err(err).Msg("Prowl - Failed to get Target Locator Attribute")
+		if att, err = l.GetAttribute("data-dtld"); err != nil {
+			log.Warn().Err(err).Msg("ProwlSearch - Failed to get Target Locator Attribute")
 			continue
 		}
 
-		log.Debug().Str("found", att).Msg("Prowl - Locator")
+		log.Debug().Str("found", att).Msg("ProwlSearch - Locator")
 		if !pw.Prowler.Targets.Follow(att) {
 			continue
 		}
 
-		log.Info().Msgf("Prowl - Target Found [%s]", att)
-
+		log.Info().Msgf("ProwlSearch - Target Found [%s]", att)
 		if page, err = pw.NewPage(func() error { return l.Click() }); err == nil {
-			pw.Save(page)
+			prowled = pw.Save(page)
 			err = errors.Join(page.Close())
 		}
 	}
 
-	return nil
+	return prowled, nil
 }

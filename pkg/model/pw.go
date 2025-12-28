@@ -51,10 +51,17 @@ func NewPW(prowl *Prowl, headless *bool) (pw *PW, err error) {
 	return
 }
 
-func (pw *PW) IsBlocked(ss ...string) error {
-	for _, s := range ss {
-		if blockedRegex.MatchString(s) {
-			return errors.New("blocked: " + s)
+func (pw *PW) IsBlocked(aa ...any) error {
+	for _, a := range aa {
+		switch t := a.(type) {
+		case playwright.Page:
+			if blockedRegex.MatchString(t.URL()) {
+				return errors.New("blocked: " + t.URL())
+			}
+		case playwright.Response:
+			if t.Status() >= 400 {
+				return errors.New("blocked: " + t.URL())
+			}
 		}
 	}
 	return nil

@@ -33,8 +33,6 @@ func (pw *PW) NewPage(ff ...func() error) (page playwright.Page, err error) {
 
 	if err != nil {
 		log.Warn().Err(err).Msg("PW - Failed to NewPage")
-	} else {
-		log.Info().Str("url", page.URL()).Msg("PW - NewPage")
 	}
 
 	return
@@ -51,7 +49,7 @@ func (pw *PW) GoTo(page playwright.Page, url string) (playwright.Response, error
 		err = errors.New(res.StatusText())
 	}
 
-	log.Err(err).Msg("PW - GoTo")
+	log.Err(err).Str("url", url).Msg("PW - GoTo")
 
 	return res, err
 }
@@ -90,11 +88,13 @@ func (pw *PW) WaitForLoadState(page playwright.Page, ls ...playwright.LoadState)
 		State:   s,
 		Timeout: Ptr(60_000.0),
 	})
-	log.Err(err).Msg("PW - WaitForLoadState")
+	if err != nil {
+		log.Err(err).Msg("PW - WaitForLoadState")
+	}
 	return err
 }
 
-func (pw *PW) Save(page playwright.Page) {
+func (pw *PW) Save(page playwright.Page) ulid.ULID {
 
 	DB := db.NewS3()
 
@@ -138,4 +138,6 @@ func (pw *PW) Save(page playwright.Page) {
 	} else {
 		DB.Put(path+"/_.json", b)
 	}
+
+	return id
 }
