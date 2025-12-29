@@ -1,27 +1,58 @@
 package model
 
 import (
-	"bytelyon-functions/pkg/service/s3"
 	"encoding/json"
 	"testing"
-	"time"
+
+	"github.com/oklog/ulid/v2"
+	"github.com/stretchr/testify/assert"
 )
 
-func TestProwler_Prowl(t *testing.T) {
-	//NewProwler(MakeDemoUser().ID, SearchProwlType, "ev fire blankets", Targets{
-	//	"li-fire.com":                 true,
-	//	"newpig.com":                  true,
-	//	"brimstonefireprotection.com": false,
-	//}).Prowl(true)
+func TestProwler_Prowl_Search(t *testing.T) {
+	t.Setenv("S3_BUCKET", "bytelyon-db-test")
+	p := &Prowler{
+		UserID: ulid.MustParse("01K48PC0BK13BWV2CGWFP8QQH0"),
+		ID:     "ev fire blanket",
+		Type:   SearchProwlerType,
+		Targets: Targets{
+			"*": true,
+		},
+	}
+	p.Prowl()
+}
 
-	var p = new(Prowler)
-	b, _ := s3.New().Get("user/01K48PC0BK13BWV2CGWFP8QQH0/prowler/search/01KDEWCKTPA7CA6MCRDNZVBRSH/_.json")
-	_ = json.Unmarshal(b, p)
+func TestProwler_Prowl_Sitemap(t *testing.T) {
+	t.Setenv("S3_BUCKET", "bytelyon-db-test")
+	p := &Prowler{
+		UserID: ulid.MustParse("01K48PC0BK13BWV2CGWFP8QQH0"),
+		ID:     "https://www.flowhotel.life",
+		Type:   SitemapProwlerType,
+	}
+	p.Prowl()
+}
 
-	t.Logf("%+v", p)
+func TestProwler_Prowl_News(t *testing.T) {
+	t.Setenv("S3_BUCKET", "bytelyon-db-test")
+	p := &Prowler{
+		UserID: ulid.MustParse("01K48PC0BK13BWV2CGWFP8QQH0"),
+		Type:   NewsProwlerType,
+		ID:     "corsair marine 970",
+	}
+	p.Prowl()
+}
 
-	for {
-		p.Prowl(true)
-		time.Sleep(time.Minute * 5)
+func TestProwler_FindAll(t *testing.T) {
+	t.Setenv("S3_BUCKET", "bytelyon-db-test")
+	p := &Prowler{
+		UserID: ulid.MustParse("01K48PC0BK13BWV2CGWFP8QQH0"),
+		Type:   SearchProwlerType,
+	}
+	all, err := p.FindAll(true)
+	assert.NoError(t, err)
+	assert.NotEmpty(t, all)
+	for _, v := range all {
+		b, _ := json.Marshal(v)
+		t.Log(string(b))
+		assert.NotEmpty(t, v.Results)
 	}
 }

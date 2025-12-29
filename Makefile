@@ -156,6 +156,3 @@ richtest: install_deps
 install_deps:
 	$(info ******************** downloading dependencies ********************)
 	go get -v ./...
-
-clean:
-	rm -rf $(BIN)

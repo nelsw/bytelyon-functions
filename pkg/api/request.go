@@ -4,6 +4,7 @@ import (
 	"bytelyon-functions/pkg/model"
 	"encoding/json"
 	"net/http"
+	"strings"
 
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/rs/zerolog/log"
@@ -36,8 +37,7 @@ func (r *Request) Log(s ...string) *Request {
 		Str("body", r.Body).
 		Str("method", r.Method()).
 		Str("user", r.User().ID.String()).
-		Any(msgPrefix+" Request", r).
-		Send()
+		Msg(msgPrefix + " Request")
 
 	return r
 }
@@ -61,7 +61,7 @@ func (r *Request) User() *model.User {
 }
 
 func (r *Request) Param(s string) string {
-	return r.QueryStringParameters[s]
+	return strings.ToLower(strings.TrimSpace(r.QueryStringParameters[s]))
 }
 
 func (r *Request) Data() []byte {

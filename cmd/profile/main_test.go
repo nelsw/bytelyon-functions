@@ -1,7 +1,7 @@
 package main
 
 import (
-	api2 "bytelyon-functions/pkg/api"
+	"bytelyon-functions/pkg/api"
 	"bytelyon-functions/pkg/model"
 	"net/http"
 	"testing"
@@ -11,7 +11,7 @@ import (
 )
 
 func init() {
-	api2.InitLogger()
+	api.InitLogger()
 }
 
 func DemoUser() model.User {
@@ -19,10 +19,10 @@ func DemoUser() model.User {
 }
 
 func Test_Handler(t *testing.T) {
+	t.Setenv("S3_BUCKET", "bytelyon-db-test")
+	user := model.User{ID: ulid.MustParse("01K48PC0BK13BWV2CGWFP8QQH0")}
 
-	user := model.MakeDemoUser()
-
-	req := api2.NewRequest().
+	req := api.NewRequest().
 		WithUser(user).
 		Get()
 

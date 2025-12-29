@@ -7,20 +7,26 @@ import (
 	"github.com/oklog/ulid/v2"
 )
 
-func NewUlid() ulid.ULID {
-	return newUlid(time.Now().UTC())
-}
+func NewUlid(a ...any) ulid.ULID {
 
-func NewUlidFromTime(t time.Time) ulid.ULID {
-	return newUlid(t)
-}
-
-func newUlid(t time.Time) ulid.ULID {
-	entropy := rand.New(rand.NewSource(t.UnixNano()))
-	ms := ulid.Timestamp(t)
-	u, err := ulid.New(ms, entropy)
-	if err != nil {
-		u = ulid.Make()
+	fn := func(t time.Time) ulid.ULID {
+		entropy := rand.New(rand.NewSource(t.UnixNano()))
+		ms := ulid.Timestamp(t)
+		u, err := ulid.New(ms, entropy)
+		if err != nil {
+			u = ulid.Make()
+		}
+		return u
 	}
-	return u
+
+	if len(a) > 0 {
+		switch t := a[0].(type) {
+		case time.Time:
+			return fn(t)
+		case string:
+			return ulid.MustParse(t)
+		}
+	}
+
+	return fn(time.Now())
 }

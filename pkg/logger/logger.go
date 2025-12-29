@@ -20,7 +20,7 @@ type builder struct {
 
 func New(a ...any) *zerolog.Logger {
 	b := builder{
-		level: zerolog.TraceLevel,
+		level: zerolog.DebugLevel,
 	}
 	for _, v := range a {
 		switch v.(type) {
