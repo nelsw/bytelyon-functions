@@ -40,7 +40,7 @@ func handlePatch(r api.Request) (events.APIGatewayV2HTTPResponse, error) {
 	}
 
 	var data struct {
-		model.Targets `json:"targets"`
+		model.Targets `json:"targets,omitempty"`
 		time.Duration `json:"frequency"`
 	}
 
@@ -97,20 +97,10 @@ func handleGet(r api.Request) (events.APIGatewayV2HTTPResponse, error) {
 	p := &model.Prowler{
 		UserID: r.User().ID,
 		Type:   t,
+		ID:     r.Param("id"),
 	}
 
-	// find all
-	if r.Param("id") == "" {
-		return api.Response(db.List(p))
-	}
-
-	// find one
-	//if p.ID, err = ulid.Parse(r.Param("id")); err != nil {
-	//	return api.BadRequest(errors.Join(err, errors.New("invalid id")))
-	//} else if err = db.Find(p); err != nil {
-	//	return api.BadRequest(errors.Join(err, errors.New("not found")))
-	//}
-	return api.OK(p)
+	return api.Response(p.FindAll(true))
 }
 
 func main() {

@@ -11,54 +11,46 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-func Save(e fmt.Stringer) error {
+func Save(e Entity) error {
 
 	b, err := json.Marshal(e)
 	if err != nil {
-		log.Err(err).
-			Stringer("key", e).
-			Any("entity", e).
-			Msg("EM - Failed to marshal")
+		log.Err(err).Str("key", e.Key()).Msg("EM - Failed to marshal")
 		return err
 	}
 
-	if err = NewS3().Put(e.String()+"/_.json", b); err != nil {
-		log.Err(err).
-			Str("key", e.String()).
-			Bytes("body", b).
-			Msg("EM - Failed to save")
+	if err = NewS3().Put(e.Key(), b); err != nil {
+		log.Err(err).Str("key", e.Key()).Msg("EM - Failed to save")
 	}
 
 	return nil
 }
 
-func Find(e fmt.Stringer) error {
-	b, err := NewS3().Get(e.String() + `/_.json`)
+func Find(e Entity) error {
+	b, err := NewS3().Get(e.Key())
 	if err == nil {
 		err = json.Unmarshal(b, e)
 	}
 	return err
 }
 
-func Delete(e fmt.Stringer) error {
-	err := NewS3().Delete(e.String() + "/_.json")
+func Delete(e Entity) error {
+	err := NewS3().Delete(e.Key())
 	if err != nil {
-		log.Err(err).
-			Stringer("key", e).
-			Msg("EM - Failed to delete")
+		log.Err(err).Str("key", e.Key()).Msg("EM - Failed to delete")
 	}
 	return err
 }
 
-func Keys(DB S3, e fmt.Stringer) ([]string, error) {
+func Keys(DB S3, e Entity) ([]string, error) {
 
 	var keys []string
 	var after string
 
-	regex := regexp.MustCompile(fmt.Sprintf(`.*%s/([A-Za-z0-9]{26}/_.json)$`, e))
+	regex := regexp.MustCompile(fmt.Sprintf(`.*%s/([A-Za-z0-9]{26}.json)$`, e))
 	for {
 
-		arr, err := DB.Keys(e.String(), after, 1_000)
+		arr, err := DB.Keys(e.Dir(), after)
 		if err != nil {
 			return nil, err
 		}
@@ -79,7 +71,7 @@ func Keys(DB S3, e fmt.Stringer) ([]string, error) {
 	return keys, nil
 }
 
-func List[E fmt.Stringer](e E) ([]E, error) {
+func List[E Entity](e E) ([]E, error) {
 
 	DB := NewS3()
 

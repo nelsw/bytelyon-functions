@@ -6,7 +6,7 @@ import (
 	"sync"
 )
 
-type ProwlSitemapCrawler struct {
+type ProwlerSitemapper struct {
 	Locator
 	relative map[string]bool
 	remote   map[string]bool
@@ -14,15 +14,15 @@ type ProwlSitemapCrawler struct {
 	wg       sync.WaitGroup
 }
 
-func NewProwlSitemapCrawler(p *ProwlSitemap) *ProwlSitemapCrawler {
-	return &ProwlSitemapCrawler{
+func NewProwlSitemapCrawler(p *ProwlSitemap) *ProwlerSitemapper {
+	return &ProwlerSitemapper{
 		Locator:  p,
 		relative: make(map[string]bool),
 		remote:   make(map[string]bool),
 	}
 }
 
-func (c *ProwlSitemapCrawler) Crawl(url string, depth int) {
+func (c *ProwlerSitemapper) Crawl(url string, depth int) {
 
 	defer c.wg.Done()
 
@@ -36,19 +36,19 @@ func (c *ProwlSitemapCrawler) Crawl(url string, depth int) {
 
 	for _, u := range rel {
 		c.Add()
-		c.Crawl(u, depth-1)
+		go c.Crawl(u, depth-1)
 	}
 }
 
-func (c *ProwlSitemapCrawler) Add() {
+func (c *ProwlerSitemapper) Add() {
 	c.wg.Add(1)
 }
 
-func (c *ProwlSitemapCrawler) Wait() {
+func (c *ProwlerSitemapper) Wait() {
 	c.wg.Wait()
 }
 
-func (c *ProwlSitemapCrawler) putRelative(s string) (ok bool) {
+func (c *ProwlerSitemapper) putRelative(s string) (ok bool) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if _, ok = c.relative[s]; !ok {
@@ -57,7 +57,7 @@ func (c *ProwlSitemapCrawler) putRelative(s string) (ok bool) {
 	return ok
 }
 
-func (c *ProwlSitemapCrawler) putAllRemote(urls []string) {
+func (c *ProwlerSitemapper) putAllRemote(urls []string) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	for _, url := range urls {
@@ -65,10 +65,10 @@ func (c *ProwlSitemapCrawler) putAllRemote(urls []string) {
 	}
 }
 
-func (c *ProwlSitemapCrawler) Relative() []string {
+func (c *ProwlerSitemapper) Relative() []string {
 	return slices.Sorted(maps.Keys(c.relative))
 }
 
-func (c *ProwlSitemapCrawler) Remote() []string {
+func (c *ProwlerSitemapper) Remote() []string {
 	return slices.Sorted(maps.Keys(c.remote))
 }

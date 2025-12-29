@@ -62,8 +62,14 @@ func Handler(req events.APIGatewayV2HTTPRequest) (events.APIGatewayV2CustomAutho
 		return response(true, Context{"user": tkn.Claims.(*Claims).User})
 	}
 
-	user, err := model.FindUser(parts[1])
+	a, err := model.NewBasicAuth(parts[1])
 	if err != nil {
+		return response(false, Context{"message": err.Error()})
+	}
+
+	var user *model.User
+
+	if user, err = a.Authenticate(); err != nil {
 		return response(false, Context{"message": err.Error()})
 	}
 

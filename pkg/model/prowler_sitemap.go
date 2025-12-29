@@ -3,7 +3,6 @@ package model
 import (
 	"bytelyon-functions/pkg/db"
 	"bytelyon-functions/pkg/util"
-	"fmt"
 	"regexp"
 	"strings"
 
@@ -26,27 +25,31 @@ type ProwlSitemap struct {
 	Domain   string    `json:"domain"`
 	Relative []string  `json:"relative"`
 	Remote   []string  `json:"remote"`
-	Prowl    *Prowl    `json:"-"`
-	PW       *PW       `json:"-"`
+	*Prowler `json:"-"`
+	*PW      `json:"-"`
 }
 
-func NewProwlSitemap(p *Prowl) *ProwlSitemap {
+func NewProwlSitemap(p *Prowler) *ProwlSitemap {
 	return &ProwlSitemap{
-		Prowl:  p,
-		ID:     NewUlid(),
-		Domain: util.Domain(p.Prowler.ID),
+		Prowler: p,
+		ID:      NewUlid(),
+		Domain:  util.Domain(p.ID),
 	}
 }
 
-func (p *ProwlSitemap) String() string {
-	return fmt.Sprintf("%s/%s", p.Prowl.Prowler, p.ID)
+func (p *ProwlSitemap) Dir() string {
+	return p.Prowler.Dir()
+}
+
+func (p *ProwlSitemap) Key() string {
+	return p.Dir() + p.ID.String() + ".json"
 }
 
 func (p *ProwlSitemap) Go() ulid.ULID {
 	var fn func(bool)
 	fn = func(headless bool) {
 		var err error
-		p.PW, err = NewPW(p.Prowl, &headless)
+		p.PW, err = NewPW(headless)
 		if err != nil {
 			log.Warn().Err(err).Msg("ProwlSitemap - Failed to initialize PW")
 			return
@@ -57,7 +60,7 @@ func (p *ProwlSitemap) Go() ulid.ULID {
 
 		c := NewProwlSitemapCrawler(p)
 		c.Add()
-		c.Crawl(p.Prowl.Prowler.ID, 15)
+		go c.Crawl(p.Prowler.ID, 3)
 		c.Wait()
 
 		p.Relative = c.Relative()
@@ -96,7 +99,9 @@ func (p *ProwlSitemap) Locate(s string) ([]string, []string) {
 	}
 
 	if err != nil {
-		log.Warn().Err(err).Msg("ProwlSitemap - Failed to locate page")
+		log.Warn().
+			Str("url", s).
+			Msg("ProwlSitemap - Failed to locate page")
 		return nil, nil
 	}
 
@@ -138,7 +143,7 @@ func (p *ProwlSitemap) Locate(s string) ([]string, []string) {
 		}
 
 		if strings.HasPrefix(k, "?") || strings.HasPrefix(k, "/") {
-			rel = append(rel, p.Prowl.Prowler.ID+k)
+			rel = append(rel, p.Prowler.ID+k)
 			continue
 		}
 

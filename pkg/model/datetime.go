@@ -50,7 +50,7 @@ func (v *DateTime) MarshalJSON() ([]byte, error) {
 }
 
 func (v *DateTime) ULID() ulid.ULID {
-	return NewUlidFromTime(time.Time(*v))
+	return NewUlid(time.Time(*v))
 }
 
 func (v *DateTime) UnixMilli() int64 {

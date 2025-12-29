@@ -41,17 +41,17 @@ type item struct {
 	} `json:"-" xml:"source"`
 }
 
-type ProwlNews struct {
-	*Prowl
+type ProwlerNews struct {
+	*Prowler
 }
 
-func NewProwlNews(p *Prowl) *ProwlNews {
-	return &ProwlNews{p}
+func NewProwlNews(p *Prowler) *ProwlerNews {
+	return &ProwlerNews{p}
 }
 
-func (p *ProwlNews) Go() ulid.ULID {
+func (p *ProwlerNews) Go() ulid.ULID {
 
-	q := strings.ReplaceAll(p.Prowl.Prowler.ID, ` `, `+`)
+	q := strings.ReplaceAll(p.ID, ` `, `+`)
 	urls := []string{
 		fmt.Sprintf("https://news.google.com/rss/search?q=%s&hl=en-US&gl=US&ceid=US:en", q),
 		fmt.Sprintf("https://www.bing.com/news/search?format=rss&q=%s", q),
@@ -71,19 +71,19 @@ func (p *ProwlNews) Go() ulid.ULID {
 	var prowled ulid.ULID
 	for _, i := range items {
 
-		if p.Prowl.Prowler.Prowled.Timestamp().UnixMilli() > i.Time.UnixMilli() {
+		if p.Prowled.Timestamp().UnixMilli() > i.Time.UnixMilli() {
 			continue
 		}
 
 		if strings.HasPrefix(i.URL, "https://news.google.com/") {
 			if s, err := decodeGoogleNewsURL(i.URL); err != nil {
-				log.Warn().Err(err).Msg("failed to decode google news url")
+				log.Warn().Err(err).Msg("ProwlerNews - failed to decode google news url")
 			} else {
 				i.URL = s
 			}
 		} else if strings.HasPrefix(i.URL, "http://www.bing.com/") {
 			if s, err := decodeBingNewsURL(i.URL); err != nil {
-				log.Warn().Err(err).Msg("failed to decode bing news url")
+				log.Warn().Err(err).Msg("ProwlerNews - failed to decode bing news url")
 			} else {
 				i.URL = s
 			}
@@ -99,12 +99,12 @@ func (p *ProwlNews) Go() ulid.ULID {
 
 		b, err := json.Marshal(i)
 		if err != nil {
-			log.Warn().Err(err).Msg("Prowler - Failed to marshal article")
+			log.Warn().Err(err).Msg("ProwlerNews - Failed to marshal article")
 			continue
 		}
 
-		if err = DB.Put(fmt.Sprintf("%s/%s/_.json", p.Prowler, i.ID), b); err != nil {
-			log.Warn().Err(err).Msg("Prowler - Failed to save article")
+		if err = DB.Put(fmt.Sprintf("%s%s.json", p.Prowler.Dir(), i.ID), b); err != nil {
+			log.Warn().Err(err).Msg("ProwlerNews - Failed to save article")
 			continue
 		}
 
@@ -114,10 +114,10 @@ func (p *ProwlNews) Go() ulid.ULID {
 	return prowled
 }
 
-func (p *ProwlNews) rss(s string) []*item {
+func (p *ProwlerNews) rss(s string) []*item {
 	res, err := http.Get(s)
 	if err != nil {
-		log.Warn().Err(err).Msg("Prowler - Failed to fetch rss feed")
+		log.Warn().Err(err).Msg("ProwlerNews - Failed to fetch rss feed")
 		return nil
 	}
 	defer res.Body.Close()
@@ -135,10 +135,7 @@ func (p *ProwlNews) rss(s string) []*item {
 	}
 	var r rss
 	if err = xml.Unmarshal(b, &r); err != nil {
-		log.Warn().
-			Err(err).
-			Str("url", s).
-			Msg("Prowler - Failed to unmarshal rss feed")
+		log.Warn().Err(err).Str("url", s).Msg("ProwlerNews - Failed to unmarshal rss feed")
 	}
 	return r.Channel.Items
 }

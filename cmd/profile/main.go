@@ -2,7 +2,9 @@ package main
 
 import (
 	"bytelyon-functions/pkg/api"
+	"bytelyon-functions/pkg/db"
 	"bytelyon-functions/pkg/model"
+	"encoding/json"
 	"net/http"
 
 	"github.com/aws/aws-lambda-go/events"
@@ -13,13 +15,17 @@ func Handler(req api.Request) (events.APIGatewayV2HTTPResponse, error) {
 
 	req.Log()
 
-	v := model.NewProfile(req.User())
+	p := &model.Profile{UserID: req.User().ID}
 
 	switch req.Method() {
 	case http.MethodGet:
-		return api.Response(v.Find())
+		return api.Response(p, db.Find(p))
 	case http.MethodPut:
-		return api.Response(v.Create([]byte(req.Body)))
+		if err := json.Unmarshal([]byte(req.Body), p); err != nil {
+			return api.BadRequest(err)
+		}
+		p.UserID = req.User().ID
+		return api.Response(p, db.Save(p))
 	}
 
 	return api.NotImplemented()

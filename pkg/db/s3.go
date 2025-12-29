@@ -1,6 +1,7 @@
 package db
 
 import (
+	"bytelyon-functions/pkg/util"
 	"bytes"
 	"context"
 	"io"
@@ -16,7 +17,7 @@ type S3 interface {
 	Delete(string) error
 	Get(string) ([]byte, error)
 	Put(string, []byte) error
-	Keys(string, string, int32) ([]string, error)
+	Keys(...string) ([]string, error)
 	URL(string, int64) (string, error)
 }
 
@@ -81,12 +82,16 @@ func (s3 *s3) Put(k string, b []byte) (err error) {
 	return
 }
 
-func (s3 *s3) Keys(p, a string, s int32) ([]string, error) {
+func (s3 *s3) Keys(s ...string) ([]string, error) {
 
+	var a string
+	if len(s) > 1 {
+		a = s[1]
+	}
 	out, err := s3.ListObjectsV2(s3.Context, &_s3.ListObjectsV2Input{
 		Bucket:     s3.Bucket,
-		Prefix:     &p,
-		MaxKeys:    &s,
+		Prefix:     &s[0],
+		MaxKeys:    util.Ptr(int32(1000)),
 		StartAfter: &a,
 	})
 
@@ -99,9 +104,8 @@ func (s3 *s3) Keys(p, a string, s int32) ([]string, error) {
 
 	log.Trace().
 		Err(err).
-		Str("prefix", p).
+		Str("prefix", s[0]).
 		Str("after", a).
-		Int32("size", s).
 		Strs("keys", keys).
 		Msg("Keys")
 

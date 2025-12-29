@@ -1,13 +1,7 @@
 package model
 
 import (
-	"bytelyon-functions/pkg/db"
-	"encoding/json"
-	"errors"
-	"fmt"
-
 	"github.com/oklog/ulid/v2"
-	"github.com/rs/zerolog/log"
 )
 
 type Profile struct {
@@ -15,27 +9,10 @@ type Profile struct {
 	Name   string    `json:"name"`
 }
 
-func NewProfile(u *User) *Profile {
-	return &Profile{UserID: u.ID}
+func (p *Profile) Dir() string {
+	return "user/"
 }
 
-func (p *Profile) String() string {
-	return fmt.Sprintf("user/%s/profile", p.UserID)
-}
-
-func (p *Profile) Create(b []byte) (*Profile, error) {
-	var v = new(Profile)
-	if err := json.Unmarshal(b, v); err != nil {
-		log.Err(err).Msg("failed to unmarshal profile")
-		return nil, err
-	}
-	if v.Name == "" {
-		return nil, errors.New("name cannot be empty")
-	}
-	v.UserID = p.UserID
-	return v, db.Save(v)
-}
-
-func (p *Profile) Find() (*Profile, error) {
-	return p, db.Find(p)
+func (p *Profile) Key() string {
+	return p.Dir() + "profile.json"
 }

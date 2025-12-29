@@ -1,13 +1,9 @@
 package model
 
 import (
-	"bytelyon-functions/pkg/db"
 	. "bytelyon-functions/pkg/util"
-	"encoding/json"
 	"errors"
-	"fmt"
 
-	"github.com/oklog/ulid/v2"
 	"github.com/playwright-community/playwright-go"
 	"github.com/rs/zerolog/log"
 )
@@ -25,9 +21,10 @@ func (pw *PW) NewPage(ff ...func() error) (page playwright.Page, err error) {
 
 	if len(ff) > 0 {
 		page, err = pw.BrowserContext.ExpectPage(ff[0], playwright.BrowserContextExpectPageOptions{
-			Timeout: playwright.Float(10_000),
+			Timeout: playwright.Float(30_000),
 		})
 	} else if page, err = pw.BrowserContext.NewPage(); err == nil {
+		page.SetDefaultTimeout(30_000)
 		err = page.AddInitScript(playwright.Script{Content: Ptr(pageScriptContent)})
 	}
 
@@ -41,7 +38,7 @@ func (pw *PW) NewPage(ff ...func() error) (page playwright.Page, err error) {
 func (pw *PW) GoTo(page playwright.Page, url string) (playwright.Response, error) {
 
 	res, err := page.Goto(url, playwright.PageGotoOptions{
-		Timeout:   Ptr(5_000.0),
+		Timeout:   Ptr(30_000.0),
 		WaitUntil: playwright.WaitUntilStateDomcontentloaded,
 	})
 
@@ -92,52 +89,4 @@ func (pw *PW) WaitForLoadState(page playwright.Page, ls ...playwright.LoadState)
 		log.Err(err).Msg("PW - WaitForLoadState")
 	}
 	return err
-}
-
-func (pw *PW) Save(page playwright.Page) ulid.ULID {
-
-	DB := db.NewS3()
-
-	var id = NewUlid()
-	var path = fmt.Sprintf("%s/%s/page/%s", pw.Prowler, pw.Prowl.ID, id)
-	var err error
-
-	var b []byte
-	if b, err = page.Screenshot(playwright.PageScreenshotOptions{FullPage: Ptr(true)}); err != nil {
-		log.Warn().Err(err).Msg("PW - Failed to Screenshot Page")
-	} else {
-		DB.Put(path+"/screenshot.png", b)
-	}
-
-	var s string
-	if s, err = page.Content(); err != nil {
-		log.Warn().Err(err).Msg("PW - Failed to get Page Content")
-	} else {
-		DB.Put(path+"/content.html", []byte(s))
-	}
-
-	var p struct {
-		ID     ulid.ULID `json:"id"`
-		Title  string    `json:"title"`
-		URL    string    `json:"url"`
-		Domain string    `json:"domain"`
-		Data   any       `json:"data"`
-	}
-
-	p.ID = id
-	p.URL = page.URL()
-	p.Data = pw.Data(p.URL, s)
-	p.Domain = Domain(p.URL)
-
-	if p.Title, err = page.Title(); err != nil {
-		log.Warn().Err(err).Msg("PW - Failed to get Page Title")
-	}
-
-	if b, err = json.Marshal(&p); err != nil {
-		log.Warn().Err(err).Msg("PW - Failed to Marshal Page")
-	} else {
-		DB.Put(path+"/_.json", b)
-	}
-
-	return id
 }
