@@ -25,7 +25,7 @@ type Prowler struct {
 	Frequency time.Duration `json:"frequency"`
 	Duration  time.Duration `json:"duration"`
 	Targets   Targets       `json:"targets,omitempty"`
-	Results   []any         `json:"results,omitempty"`
+	Sessions  []any         `json:"sessions,omitempty"`
 }
 
 func (p *Prowler) Dir() string {
@@ -57,8 +57,6 @@ func (p *Prowler) FindAll(eager ...bool) (pp []*Prowler, err error) {
 
 func (p *Prowler) findAllSearches(eager ...bool) ([]*Prowler, error) {
 
-	loadResults := len(eager) > 0 && eager[0]
-
 	s3 := db.NewS3()
 
 	keys, err := s3.Keys(p.Dir())
@@ -67,64 +65,143 @@ func (p *Prowler) findAllSearches(eager ...bool) ([]*Prowler, error) {
 	} else if len(keys) == 0 {
 		return nil, errors.New("no keys found")
 	}
-	sort.Sort(sort.Reverse(sort.StringSlice(keys)))
+	//sort.Sort(sort.Reverse(sort.StringSlice(keys)))
+
+	var uniqueJsonNames = make(map[string][]string)
+	for _, k := range keys {
+		if !strings.HasSuffix(k, ".json") {
+			continue
+		}
+		k = strings.TrimPrefix(k, p.Dir())
+		idx := strings.Index(k, "/")
+		key := p.Dir() + k[:idx]
+		val := k[idx+1:]
+		uniqueJsonNames[key] = append(uniqueJsonNames[key], val)
+	}
+
+	var sessionGroups = make(map[string][]string)
+	for k, v := range uniqueJsonNames {
+		for _, vv := range v {
+			idx := strings.Index(vv, "/")
+			if idx == -1 {
+				continue
+			}
+			sessionId := k + "/" + vv[:idx]
+			sessionId = strings.TrimPrefix(sessionId, p.Dir())
+			sessionGroups[sessionId] = append(sessionGroups[sessionId], vv[idx:])
+		}
+	}
+
+	var searchGroups = make(map[string][]string)
+	for k, v := range sessionGroups {
+		idx := strings.Index(k, "/")
+		key := k[:idx]
+		sessionId := k[idx+1:]
+		for _, vv := range v {
+			searchGroups[key] = append(searchGroups[key], sessionId+vv)
+		}
+	}
+
+	type Page struct {
+		Data    any     `json:"data"`
+		Img     string  `json:"img"`
+		Html    string  `json:"html"`
+		Targets []*Page `json:"targets,omitempty"`
+	}
 
 	var prowlers []*Prowler
-	var prowlersMap = make(map[string]*Prowler)
-	idPageFileMap := make(map[string]map[string]map[string]int)
+	for k, v := range searchGroups {
 
-	for _, k := range keys {
+		k = p.Dir() + k
+		fmt.Println("key", k)
 
-		if strings.HasSuffix(k, "/_.json") {
+		var x = new(Prowler)
+		b, _ := s3.Get(k + "/_.json")
+		_ = json.Unmarshal(b, x)
 
-			b, _ := s3.Get(k)
-			var e *Prowler
-			_ = json.Unmarshal(b, &e)
-			prowlersMap[e.ID] = e
-			prowlers = append(prowlers, e)
+		for _, vv := range v {
 
-		} else if loadResults {
+			key := k + "/" + vv
+			b, _ = s3.Get(key)
+			var data map[string]any
+			_ = json.Unmarshal(b, &data)
 
-			prowler := prowlers[len(prowlers)-1]
+			img, _ := s3.URL(strings.ReplaceAll(key, ".json", ".png"), 30)
+			html, _ := s3.URL(strings.ReplaceAll(key, ".json", ".html"), 30)
 
-			if _, ok := idPageFileMap[prowler.ID]; !ok {
-				idPageFileMap[prowler.ID] = make(map[string]map[string]int)
-			}
-
-			ids := strings.Split(strings.TrimPrefix(k, prowler.Dir()), "/")
-			page := ids[0]
-			file := ids[1]
-			if idx := strings.Index(file, "."); idx > 0 {
-				file = file[:idx]
-			}
-
-			if _, ok := idPageFileMap[prowler.ID][page]; !ok {
-				idPageFileMap[prowler.ID][page] = make(map[string]int)
-			}
-
-			idPageFileMap[prowler.ID][page][file]++
-		}
-	}
-
-	type Result struct {
-		Data []byte `json:"data"`
-		Img  string `json:"img"`
-		Html string `json:"html"`
-	}
-
-	for id, m1 := range idPageFileMap {
-		for page, m2 := range m1 {
-			for file, count := range m2 {
-				var r Result
-				r.Img, _ = s3.URL(p.Dir()+fmt.Sprintf("%s/%s/%s.png", id, page, file), 30)
-				r.Html, _ = s3.URL(p.Dir()+fmt.Sprintf("%s/%s/%s.html", id, page, file), 30)
-				if count > 2 {
-					r.Data, _ = s3.Get(fmt.Sprintf("%s%s/%s/%s.json", p.Dir(), id, page, file))
-				}
-				prowlersMap[id].Results = append(prowlersMap[id].Results, r)
+			page := &Page{Img: img, Html: html, Data: &data}
+			if strings.Contains(vv, "serp") {
+				x.Sessions = append(x.Sessions, page)
+			} else {
+				x.Sessions[len(x.Sessions)-1].(*Page).Targets = append(x.Sessions[len(x.Sessions)-1].(*Page).Targets, page)
 			}
 		}
+		prowlers = append(prowlers, x)
 	}
+
+	//var prowlersMap = make(map[string]*Prowler)
+	//idPageFileMap := make(map[string]map[string]map[string]int)
+
+	//for _, k := range keys {
+	//	fmt.Println(k)
+	//	if strings.HasSuffix(k, "/_.json") {
+	//
+	//		b, _ := s3.Get(k)
+	//		var e *Prowler
+	//		_ = json.Unmarshal(b, &e)
+	//		prowlersMap[e.ID] = e
+	//		prowlers = append(prowlers, e)
+	//
+	//	} else if loadResults {
+	//
+	//		prowler := prowlers[len(prowlers)-1]
+	//
+	//		if _, ok := idPageFileMap[prowler.ID]; !ok {
+	//			idPageFileMap[prowler.ID] = make(map[string]map[string]int)
+	//		}
+	//
+	//		ids := strings.Split(strings.TrimPrefix(k, prowler.Dir()), "/")
+	//		page := ids[0]
+	//		file := ids[1]
+	//		if idx := strings.Index(file, "."); idx > 0 {
+	//			file = file[:idx]
+	//		}
+	//
+	//		if _, ok := idPageFileMap[prowler.ID][page]; !ok {
+	//			idPageFileMap[prowler.ID][page] = make(map[string]int)
+	//		}
+	//
+	//		idPageFileMap[prowler.ID][page][file]++
+	//	}
+	//}
+
+	//type Result struct {
+	//	Data     any      `json:"data"`
+	//	Img      string   `json:"img"`
+	//	Html     string   `json:"html"`
+	//	Followed []Result `json:"followed,omitempty"`
+	//}
+	//
+	//var r Result
+	//for id, m1 := range idPageFileMap {
+	//	for page, m2 := range m1 {
+	//		for file, count := range m2 {
+	//			img, _ := s3.URL(p.Dir()+fmt.Sprintf("%s/%s/%s.png", id, page, file), 30)
+	//			html, _ := s3.URL(p.Dir()+fmt.Sprintf("%s/%s/%s.html", id, page, file), 30)
+	//			if count < 3 {
+	//				r.Followed = append(r.Followed, Result{Img: img, Html: html})
+	//				continue
+	//			}
+	//			r.Img = img
+	//			r.Html = html
+	//			b, _ := s3.Get(fmt.Sprintf("%s%s/%s/%s.json", p.Dir(), id, page, file))
+	//			var m map[string]any
+	//			_ = json.Unmarshal(b, &m)
+	//			r.Data = m
+	//		}
+	//	}
+	//	prowlersMap[id].Sessions = append(prowlersMap[id].Sessions, r)
+	//}
 
 	return prowlers, nil
 }
@@ -160,7 +237,7 @@ func (p *Prowler) findAllSimpleTypes(eager ...bool) ([]*Prowler, error) {
 			id = id[:len(id)-27]
 			b, _ := s3.Get(k)
 			_ = json.Unmarshal(b, &a)
-			prowlersMap[id].Results = append(prowlersMap[id].Results, a)
+			prowlersMap[id].Sessions = append(prowlersMap[id].Sessions, a)
 		}
 	}
 	prowlers := slices.Collect(maps.Values(prowlersMap))

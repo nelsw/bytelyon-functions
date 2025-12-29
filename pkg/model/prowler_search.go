@@ -4,7 +4,6 @@ import (
 	"bytelyon-functions/pkg/db"
 	"bytelyon-functions/pkg/util"
 	"encoding/json"
-	"errors"
 	"fmt"
 
 	"github.com/oklog/ulid/v2"
@@ -125,7 +124,9 @@ func (p *ProwlerSearch) worker() (prowled ulid.ULID, err error) {
 	var att string
 	for _, l := range locators {
 
-		if att, err = l.GetAttribute("data-dtld"); err != nil {
+		if att, err = l.GetAttribute("data-dtld", playwright.LocatorGetAttributeOptions{
+			Timeout: util.Ptr(5_000.0),
+		}); err != nil {
 			log.Warn().Err(err).Msg("ProwlerSearch - Failed to get Target Locator Attribute")
 			continue
 		}
@@ -136,10 +137,18 @@ func (p *ProwlerSearch) worker() (prowled ulid.ULID, err error) {
 		}
 
 		log.Info().Msgf("ProwlerSearch - Target Found [%s]", att)
-		var targetPage playwright.Page
-		if targetPage, err = p.PW.NewPage(func() error { return l.Click() }); err == nil {
+
+		if err = l.Click(playwright.LocatorClickOptions{Timeout: util.Ptr(5_000.0)}); err != nil {
+			log.Warn().Err(err).Msg("ProwlerSearch - Failed to Click Target Locator")
+			continue
+		}
+
+		targetPage, pageErr := p.PW.NewPage(func() error { return l.Click() })
+		if pageErr != nil {
+			log.Warn().Err(pageErr).Msg("ProwlerSearch - Failed to Click Target")
+		} else {
 			prowled = p.save(targetPage)
-			err = errors.Join(targetPage.Close())
+			targetPage.Close()
 		}
 	}
 
@@ -149,9 +158,16 @@ func (p *ProwlerSearch) worker() (prowled ulid.ULID, err error) {
 func (p *ProwlerSearch) save(page playwright.Page) (prowled ulid.ULID) {
 
 	prowled = NewUlid()
-	path := p.Dir() + prowled.String()
 	url := page.URL()
 	domain := util.Domain(url)
+
+	path := p.Dir()
+	if domain == "google.com" {
+		path += "serp/"
+	} else {
+		path += "target/"
+	}
+	path += prowled.String()
 
 	var err error
 
@@ -181,14 +197,15 @@ func (p *ProwlerSearch) save(page playwright.Page) (prowled ulid.ULID) {
 	}
 
 	if m["domain"] == "google.com" {
-		m["data"] = p.PW.Data(url, content)
+		m["results"] = p.PW.Data(url, content)
 		m["targets"] = p.Targets
-		var data []byte
-		if data, err = json.Marshal(&m); err != nil {
-			log.Warn().Err(err).Str("domain", domain).Msg("PW - Failed to Marshal Page")
-		} else {
-			p.S3.Put(path+".json", data)
-		}
+	}
+
+	var data []byte
+	if data, err = json.Marshal(&m); err != nil {
+		log.Warn().Err(err).Str("domain", domain).Msg("PW - Failed to Marshal Page")
+	} else {
+		p.S3.Put(path+".json", data)
 	}
 
 	log.Info().

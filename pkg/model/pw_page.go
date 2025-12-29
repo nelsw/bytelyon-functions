@@ -17,22 +17,25 @@ const (
 }`
 )
 
-func (pw *PW) NewPage(ff ...func() error) (page playwright.Page, err error) {
+func (pw *PW) NewPage(ff ...func() error) (playwright.Page, error) {
 
 	if len(ff) > 0 {
-		page, err = pw.BrowserContext.ExpectPage(ff[0], playwright.BrowserContextExpectPageOptions{
-			Timeout: playwright.Float(30_000),
-		})
-	} else if page, err = pw.BrowserContext.NewPage(); err == nil {
-		page.SetDefaultTimeout(30_000)
-		err = page.AddInitScript(playwright.Script{Content: Ptr(pageScriptContent)})
+		page, err := pw.BrowserContext.ExpectPage(ff[0])
+		if err != nil {
+			log.Warn().Err(err).Msg("PW - Failed to ExpectPage")
+		}
+		page.BringToFront()
+		return page, err
 	}
 
+	page, err := pw.BrowserContext.NewPage()
 	if err != nil {
 		log.Warn().Err(err).Msg("PW - Failed to NewPage")
+	} else if err = page.AddInitScript(playwright.Script{Content: Ptr(pageScriptContent)}); err != nil {
+		log.Warn().Err(err).Msg("PW - Failed to AddInitScript")
 	}
 
-	return
+	return page, err
 }
 
 func (pw *PW) GoTo(page playwright.Page, url string) (playwright.Response, error) {

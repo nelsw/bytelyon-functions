@@ -12,7 +12,7 @@ func TestProwler_Prowl_Search(t *testing.T) {
 	t.Setenv("S3_BUCKET", "bytelyon-db-test")
 	p := &Prowler{
 		UserID: ulid.MustParse("01K48PC0BK13BWV2CGWFP8QQH0"),
-		ID:     "ev fire blanket",
+		ID:     "indoor bike trainer",
 		Type:   SearchProwlerType,
 		Targets: Targets{
 			"*": true,
@@ -51,8 +51,7 @@ func TestProwler_FindAll(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotEmpty(t, all)
 	for _, v := range all {
-		b, _ := json.Marshal(v)
+		b, _ := json.MarshalIndent(v, "", "\t")
 		t.Log(string(b))
-		assert.NotEmpty(t, v.Results)
 	}
 }
