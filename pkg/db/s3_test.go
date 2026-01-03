@@ -62,7 +62,7 @@ func TestClient_Keys(t *testing.T) {
 		assert.NoError(t, NewS3().Put(testKey(ids[i]), testBody(ids[i])))
 	}
 
-	keys, err := NewS3().Keys("users/", testKey(ids[5]), 2)
+	keys, err := NewS3().Keys("users/", testKey(ids[5]), "2")
 
 	assert.NoError(t, err)
 	assert.Len(t, keys, 2)

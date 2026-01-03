@@ -12,6 +12,7 @@ import (
 
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
+	"github.com/oklog/ulid/v2"
 )
 
 func Handler(r api.Request) (events.APIGatewayV2HTTPResponse, error) {
@@ -23,6 +24,12 @@ func Handler(r api.Request) (events.APIGatewayV2HTTPResponse, error) {
 		return handlePost(r)
 	case http.MethodGet:
 		return handleGet(r)
+	case http.MethodDelete:
+		id, err := ulid.Parse(r.PathParameters["id"])
+		if err != nil {
+			return api.BadRequest(err)
+		}
+		db.MagicDelete(r.User().ID, id)
 	}
 	return api.NotImplemented()
 }
@@ -100,7 +107,7 @@ func handleGet(r api.Request) (events.APIGatewayV2HTTPResponse, error) {
 		ID:     r.Param("id"),
 	}
 
-	return api.Response(p.FindAll(true))
+	return api.Response(p.FindAll())
 }
 
 func main() {

@@ -41,7 +41,7 @@ func (pw *PW) NewPage(ff ...func() error) (playwright.Page, error) {
 func (pw *PW) GoTo(page playwright.Page, url string) (playwright.Response, error) {
 
 	res, err := page.Goto(url, playwright.PageGotoOptions{
-		Timeout:   Ptr(30_000.0),
+		Timeout:   Ptr(10_000.0),
 		WaitUntil: playwright.WaitUntilStateDomcontentloaded,
 	})
 

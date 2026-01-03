@@ -11,7 +11,7 @@ func (pw *PW) NewBrowser() (err error) {
 
 	pw.Browser, err = pw.Chromium.Launch(playwright.BrowserTypeLaunchOptions{
 		Headless: pw.Headless,
-		Timeout:  Ptr(60_000.0),
+		Timeout:  Ptr(2 * 60_000.0),
 		Args: []string{
 			"--disable-accelerated-2d-canvas",
 			"--disable-background-networking",

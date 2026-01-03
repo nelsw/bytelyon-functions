@@ -105,7 +105,7 @@ func (p *ProwlerSearch) worker() (prowled ulid.ULID, err error) {
 	prowled = p.save(page)
 
 	targetCount := len(p.Targets)
-	log.Info().Msgf("ProwlerSearch - Targets [%d]", targetCount)
+	log.Info().Msgf("ProwlerSearch - Pages [%d]", targetCount)
 
 	if targetCount == 0 {
 		return

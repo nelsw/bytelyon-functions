@@ -6,9 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"maps"
-	"slices"
-	"sort"
 	"strings"
 	"time"
 
@@ -43,19 +40,19 @@ func (p *Prowler) Key() string {
 	return p.Dir() + "_.json"
 }
 
-func (p *Prowler) FindAll(eager ...bool) (pp []*Prowler, err error) {
+func (p *Prowler) FindAll() (pp []*Prowler, err error) {
 
 	switch p.Type {
 	case SearchProwlerType:
-		return p.findAllSearches(true)
+		return p.findAllSearches()
 	case SitemapProwlerType, NewsProwlerType:
-		return p.findAllSimpleTypes(true)
+		return p.findAllSimpleTypes()
 	}
 
 	return nil, errors.New("not implemented")
 }
 
-func (p *Prowler) findAllSearches(eager ...bool) ([]*Prowler, error) {
+func (p *Prowler) findAllSearches() ([]*Prowler, error) {
 
 	s3 := db.NewS3()
 
@@ -103,10 +100,10 @@ func (p *Prowler) findAllSearches(eager ...bool) ([]*Prowler, error) {
 	}
 
 	type Page struct {
-		Data    any     `json:"data"`
-		Img     string  `json:"img"`
-		Html    string  `json:"html"`
-		Targets []*Page `json:"targets,omitempty"`
+		Data  any     `json:"data"`
+		Img   string  `json:"img"`
+		Html  string  `json:"html"`
+		Pages []*Page `json:"pages,omitempty"`
 	}
 
 	var prowlers []*Prowler
@@ -133,7 +130,7 @@ func (p *Prowler) findAllSearches(eager ...bool) ([]*Prowler, error) {
 			if strings.Contains(vv, "serp") {
 				x.Sessions = append(x.Sessions, page)
 			} else {
-				x.Sessions[len(x.Sessions)-1].(*Page).Targets = append(x.Sessions[len(x.Sessions)-1].(*Page).Targets, page)
+				x.Sessions[len(x.Sessions)-1].(*Page).Pages = append(x.Sessions[len(x.Sessions)-1].(*Page).Pages, page)
 			}
 		}
 		prowlers = append(prowlers, x)
@@ -206,9 +203,7 @@ func (p *Prowler) findAllSearches(eager ...bool) ([]*Prowler, error) {
 	return prowlers, nil
 }
 
-func (p *Prowler) findAllSimpleTypes(eager ...bool) ([]*Prowler, error) {
-
-	loadResults := len(eager) > 0 && eager[0]
+func (p *Prowler) findAllSimpleTypes() ([]*Prowler, error) {
 
 	s3 := db.NewS3()
 
@@ -219,31 +214,22 @@ func (p *Prowler) findAllSimpleTypes(eager ...bool) ([]*Prowler, error) {
 		return nil, errors.New("no keys found")
 	}
 
-	var prowlersMap = make(map[string]*Prowler)
+	var prowlers []*Prowler
 
-	var e Prowler
-	var a any
-
-	sort.Sort(sort.Reverse(sort.StringSlice(keys)))
-
+	var m = make(map[int][]any)
 	for _, k := range keys {
-		if strings.HasSuffix(k, "/_.json") {
-			b, _ := s3.Get(k)
-			id := strings.TrimSuffix(k, "/_.json")
-			_ = json.Unmarshal(b, &e)
-			prowlersMap[id] = &e
-		} else if loadResults {
-			id := strings.TrimSuffix(k, ".json")
-			id = id[:len(id)-27]
-			b, _ := s3.Get(k)
+		b, _ := s3.Get(k)
+		if !strings.HasSuffix(k, "_.json") {
+			var a any
 			_ = json.Unmarshal(b, &a)
-			prowlersMap[id].Sessions = append(prowlersMap[id].Sessions, a)
+			m[len(prowlers)] = append(m[len(prowlers)], a)
+			continue
 		}
+		var prowler = new(Prowler)
+		_ = json.Unmarshal(b, prowler)
+		prowler.Sessions = append(prowler.Sessions, m[len(prowlers)]...)
+		prowlers = append(prowlers, prowler)
 	}
-	prowlers := slices.Collect(maps.Values(prowlersMap))
-	sort.Slice(prowlers, func(i, j int) bool {
-		return prowlers[i].Prowled.Timestamp().UnixMilli() > prowlers[j].Prowled.Timestamp().UnixMilli()
-	})
 
 	return prowlers, nil
 }

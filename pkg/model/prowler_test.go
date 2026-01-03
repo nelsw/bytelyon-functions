@@ -25,7 +25,7 @@ func TestProwler_Prowl_Sitemap(t *testing.T) {
 	t.Setenv("S3_BUCKET", "bytelyon-db-test")
 	p := &Prowler{
 		UserID: ulid.MustParse("01K48PC0BK13BWV2CGWFP8QQH0"),
-		ID:     "https://www.flowhotel.life",
+		ID:     "https://www.ubicquia.com",
 		Type:   SitemapProwlerType,
 	}
 	p.Prowl()
@@ -36,7 +36,7 @@ func TestProwler_Prowl_News(t *testing.T) {
 	p := &Prowler{
 		UserID: ulid.MustParse("01K48PC0BK13BWV2CGWFP8QQH0"),
 		Type:   NewsProwlerType,
-		ID:     "corsair marine 970",
+		ID:     "silver price today",
 	}
 	p.Prowl()
 }
@@ -45,9 +45,9 @@ func TestProwler_FindAll(t *testing.T) {
 	t.Setenv("S3_BUCKET", "bytelyon-db-test")
 	p := &Prowler{
 		UserID: ulid.MustParse("01K48PC0BK13BWV2CGWFP8QQH0"),
-		Type:   SearchProwlerType,
+		Type:   NewsProwlerType,
 	}
-	all, err := p.FindAll(true)
+	all, err := p.FindAll()
 	assert.NoError(t, err)
 	assert.NotEmpty(t, all)
 	for _, v := range all {
