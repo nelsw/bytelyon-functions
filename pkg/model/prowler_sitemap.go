@@ -3,8 +3,12 @@ package model
 import (
 	"bytelyon-functions/pkg/db"
 	"bytelyon-functions/pkg/util"
+	"encoding/json"
 	"regexp"
+	"sort"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/oklog/ulid/v2"
 	"github.com/playwright-community/playwright-go"
@@ -43,6 +47,64 @@ func (p *ProwlSitemap) Dir() string {
 
 func (p *ProwlSitemap) Key() string {
 	return p.Dir() + p.ID.String() + ".json"
+}
+
+func (p *ProwlSitemap) FindAll() ([]*Node, error) {
+	keys, err := db.NewS3().Keys(p.Dir())
+	if err != nil {
+		return nil, err
+	}
+
+	var rootMap = make(map[string]*Prowler)
+	var leafMap = make(map[string][]*ProwlSitemap)
+
+	//var mu sync.Mutex
+	var wg sync.WaitGroup
+	for _, key := range keys {
+		k := key[:strings.LastIndex(key, "/")]
+
+		wg.Go(func() {
+			b, _ := db.NewS3().Get(key)
+
+			if strings.HasSuffix(key, "_.json") {
+				var v Prowler
+				_ = json.Unmarshal(b, &v)
+				rootMap[k] = &v
+				return
+			}
+
+			var v ProwlSitemap
+			_ = json.Unmarshal(b, &v)
+
+			//date := v.ID.Timestamp().Format(time.DateTime)
+
+			//mu.Lock()
+			leafMap[k] = append(leafMap[k], &v)
+			//mu.Unlock()
+		})
+	}
+	wg.Wait()
+	var nodes []*Node
+
+	for id, prowler := range rootMap {
+
+		rootLabel := id[strings.LastIndex(id, "/")+1:]
+		rootID := "sitemap/" + rootLabel
+		root := NewNode(rootID, rootLabel, prowler)
+		nodes = append(nodes, root)
+
+		sitemaps := leafMap[id]
+		sort.Slice(sitemaps, func(i, j int) bool {
+			return sitemaps[i].ID.Timestamp().Before(sitemaps[j].ID.Timestamp())
+		})
+		for _, sitemap := range sitemaps {
+			dateLabel := sitemap.ID.Timestamp().Format(time.DateTime)
+			dateID := rootID + "/" + dateLabel
+			root.Children = append(root.Children, NewNode(dateID, dateLabel, sitemap))
+		}
+	}
+	sort.Slice(nodes, func(i, j int) bool { return nodes[i].Label < nodes[j].Label })
+	return nodes, nil
 }
 
 func (p *ProwlSitemap) Go() ulid.ULID {
@@ -129,7 +191,11 @@ func (p *ProwlSitemap) Locate(s string) ([]string, []string) {
 	var rel, rem []string
 	for k := range m {
 
+		k = strings.TrimSpace(k)
 		k = strings.TrimSuffix(k, "/")
+		if k == "" {
+			continue
+		}
 
 		if badAnchorRegex.MatchString(k) ||
 			badExtRegex.MatchString(k) ||

@@ -2,6 +2,7 @@ package model
 
 import (
 	"encoding/json"
+	"fmt"
 	"testing"
 
 	"github.com/oklog/ulid/v2"
@@ -50,8 +51,6 @@ func TestProwler_FindAll(t *testing.T) {
 	all, err := p.FindAll()
 	assert.NoError(t, err)
 	assert.NotEmpty(t, all)
-	for _, v := range all {
-		b, _ := json.MarshalIndent(v, "", "\t")
-		t.Log(string(b))
-	}
+	b, _ := json.MarshalIndent(all, "", "\t")
+	fmt.Println(string(b))
 }

@@ -5,6 +5,11 @@ import (
 	"bytelyon-functions/pkg/util"
 	"encoding/json"
 	"fmt"
+	"maps"
+	"slices"
+	"sort"
+	"strings"
+	"time"
 
 	"github.com/oklog/ulid/v2"
 	"github.com/playwright-community/playwright-go"
@@ -40,6 +45,105 @@ func NewProwlSearch(p *Prowler) *ProwlerSearch {
 
 func (p *ProwlerSearch) Dir() string {
 	return p.Prowler.Dir() + p.ID.String() + "/"
+}
+
+func (p *ProwlerSearch) FindAll() ([]*Node, error) {
+	keys, err := db.NewS3().Keys(p.Prowler.Dir())
+	if err != nil {
+		return nil, err
+	}
+
+	var jsonKeys []string
+	for _, key := range keys {
+		if strings.HasSuffix(key, ".json") {
+			jsonKeys = append(jsonKeys, key)
+		}
+	}
+
+	var fullKeyPrefix = "user/" + p.UserID.String() + "/prowler/"
+
+	var nodeIds []string
+	for _, k := range jsonKeys {
+		id := strings.TrimPrefix(k, fullKeyPrefix)
+		nodeIds = append(nodeIds, id)
+	}
+
+	var rootMap = make(map[string]*Node)
+	for _, nodeId := range nodeIds {
+		if strings.HasSuffix(nodeId, "/_.json") {
+			b, _ := p.S3.Get(fullKeyPrefix + nodeId)
+			var pp Prowler
+			_ = json.Unmarshal(b, &pp)
+
+			id := strings.TrimSuffix(nodeId, "/_.json")
+			label := strings.TrimPrefix(id, "search/")
+			node := NewNode(id, label, &pp)
+			rootMap[id] = node
+		}
+	}
+
+	var serpKeys []string
+	for _, k := range jsonKeys {
+		if strings.Contains(k, "/serp/") {
+			serpKey := strings.TrimPrefix(k, fullKeyPrefix)
+
+			serpKeys = append(serpKeys, serpKey)
+		}
+	}
+
+	var dateMap = make(map[string][]*Node)
+	for _, serpKey := range serpKeys {
+
+		str := strings.TrimPrefix(serpKey, "search/")
+		idx := strings.Index(str, "/")
+		rootNodeId := "search/" + str[:idx]
+
+		str = str[idx+1:]
+		idx = strings.Index(str, "/")
+		ulidStr := str[:idx]
+
+		dateTime := ulid.MustParse(ulidStr).Timestamp().Format(time.DateTime)
+
+		b, _ := p.S3.Get(fullKeyPrefix + serpKey)
+		var data map[string]any
+		_ = json.Unmarshal(b, &data)
+
+		img, _ := p.S3.URL(strings.ReplaceAll(fullKeyPrefix+serpKey, ".json", ".png"), 30)
+		html, _ := p.S3.URL(strings.ReplaceAll(fullKeyPrefix+serpKey, ".json", ".html"), 30)
+
+		idx = strings.LastIndex(serpKey, "/")
+		id := serpKey[idx+1:]
+		id = strings.TrimSuffix(id, ".json")
+		node := NewNode(rootNodeId+"/"+dateTime, dateTime, map[string]any{
+			"id":   id,
+			"img":  img,
+			"html": html,
+			"json": data,
+		})
+
+		dateMap[rootNodeId] = append(dateMap[rootNodeId], node)
+	}
+
+	var rootIds = slices.Collect(maps.Keys(rootMap))
+	sort.Strings(rootIds)
+
+	for _, rootId := range rootIds {
+		children := dateMap[rootId]
+		sort.Slice(children, func(i, j int) bool {
+			iTime, _ := time.Parse(time.DateTime, children[i].Label)
+			jTime, _ := time.Parse(time.DateTime, children[j].Label)
+			return iTime.UnixMilli() < jTime.UnixMilli()
+		})
+		rootMap[rootId].Children = children
+	}
+
+	var nodes []*Node
+
+	for _, rootId := range rootIds {
+		nodes = append(nodes, rootMap[rootId])
+	}
+
+	return nodes, nil
 }
 
 func (p *ProwlerSearch) Go() ulid.ULID {

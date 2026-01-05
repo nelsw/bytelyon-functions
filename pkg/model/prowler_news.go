@@ -9,19 +9,18 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"maps"
 	"net/http"
 	"net/url"
 	"regexp"
+	"slices"
 	"sort"
 	"strings"
+	"sync"
 
 	"github.com/oklog/ulid/v2"
 	"github.com/rs/zerolog/log"
 	"golang.org/x/net/html"
-)
-
-var (
-	bingRssRegexp = regexp.MustCompile("</?News(:\\w+)>")
 )
 
 type rss struct {
@@ -49,69 +48,74 @@ func NewProwlNews(p *Prowler) *ProwlerNews {
 	return &ProwlerNews{p}
 }
 
+func (p *ProwlerNews) FindAll() ([]*Node, error) {
+
+	keys, err := db.NewS3().Keys(p.Dir())
+	if err != nil {
+		return nil, err
+	}
+
+	var rootMap = make(map[string]*Prowler)
+	var leafMap = make(map[string]map[string][]*item)
+
+	var mu sync.Mutex
+	var wg sync.WaitGroup
+	for _, key := range keys {
+		k := key[:strings.LastIndex(key, "/")]
+		if _, ok := leafMap[k]; !ok {
+			leafMap[k] = make(map[string][]*item)
+		}
+
+		wg.Go(func() {
+			b, _ := db.NewS3().Get(key)
+
+			if strings.HasSuffix(key, "_.json") {
+				var v Prowler
+				_ = json.Unmarshal(b, &v)
+				rootMap[k] = &v
+				return
+			}
+
+			var v item
+			_ = json.Unmarshal(b, &v)
+
+			date := v.ID.Timestamp().Format("2006-01-02")
+
+			mu.Lock()
+			leafMap[k][date] = append(leafMap[k][date], &v)
+			mu.Unlock()
+		})
+	}
+	wg.Wait()
+	var nodes []*Node
+
+	for id, prowler := range rootMap {
+
+		rootLabel := id[strings.LastIndex(id, "/")+1:]
+		rootID := "news/" + rootLabel
+		root := NewNode(rootID, rootLabel)
+		root.Data = prowler
+		nodes = append(nodes, root)
+
+		dates := slices.Collect(maps.Keys(leafMap[id]))
+		slices.Sort(dates)
+		slices.Reverse(dates)
+
+		for _, date := range dates {
+			dateLabel := date
+			dateID := rootID + "/" + dateLabel
+			branch := NewNode(dateID, dateLabel)
+			leaves := leafMap[id][date]
+			branch.Data = leaves
+			root.Children = append(root.Children, branch)
+		}
+	}
+	sort.Slice(nodes, func(i, j int) bool { return nodes[i].Label < nodes[j].Label })
+	return nodes, nil
+}
+
 func (p *ProwlerNews) Go() ulid.ULID {
-
-	q := strings.ReplaceAll(p.ID, ` `, `+`)
-	urls := []string{
-		fmt.Sprintf("https://news.google.com/rss/search?q=%s&hl=en-US&gl=US&ceid=US:en", q),
-		fmt.Sprintf("https://www.bing.com/news/search?format=rss&q=%s", q),
-		fmt.Sprintf("https://www.bing.com/search?format=rss&q=%s", q),
-	}
-
-	var items []*item
-	for _, u := range urls {
-		items = append(items, p.rss(u)...)
-	}
-
-	sort.Slice(items, func(i, j int) bool {
-		return items[i].Time.UnixMilli() < items[j].Time.UnixMilli()
-	})
-
-	DB := db.NewS3()
-	var prowled ulid.ULID
-	for _, i := range items {
-
-		if p.Prowled.Timestamp().UnixMilli() > i.Time.UnixMilli() {
-			continue
-		}
-
-		if strings.HasPrefix(i.URL, "https://news.google.com/") {
-			if s, err := decodeGoogleNewsURL(i.URL); err != nil {
-				log.Warn().Err(err).Msg("ProwlerNews - failed to decode google news url")
-			} else {
-				i.URL = s
-			}
-		} else if strings.HasPrefix(i.URL, "http://www.bing.com/") {
-			if s, err := decodeBingNewsURL(i.URL); err != nil {
-				log.Warn().Err(err).Msg("ProwlerNews - failed to decode bing news url")
-			} else {
-				i.URL = s
-			}
-		}
-
-		i.ID = i.Time.ULID()
-
-		if i.Src != nil {
-			i.Source = i.Src.Value
-		} else {
-			i.Source = util.Domain(i.URL)
-		}
-
-		b, err := json.Marshal(i)
-		if err != nil {
-			log.Warn().Err(err).Msg("ProwlerNews - Failed to marshal article")
-			continue
-		}
-
-		if err = DB.Put(fmt.Sprintf("%s%s.json", p.Prowler.Dir(), i.ID), b); err != nil {
-			log.Warn().Err(err).Msg("ProwlerNews - Failed to save article")
-			continue
-		}
-
-		prowled = i.ID
-	}
-
-	return prowled
+	return p.goSaveItems(db.NewS3(), p.goFindItems())
 }
 
 func (p *ProwlerNews) rss(s string) []*item {
@@ -127,12 +131,6 @@ func (p *ProwlerNews) rss(s string) []*item {
 		log.Warn().Err(err).Msg("Prowler - Failed to read rss feed")
 	}
 
-	if strings.Contains(s, "https://www.bing.com/") {
-		str := bingRssRegexp.ReplaceAllStringFunc(string(b), func(s string) string {
-			return strings.ReplaceAll(s, ":", "_")
-		})
-		b = []byte(str)
-	}
 	var r rss
 	if err = xml.Unmarshal(b, &r); err != nil {
 		log.Warn().Err(err).Str("url", s).Msg("ProwlerNews - Failed to unmarshal rss feed")
@@ -140,14 +138,74 @@ func (p *ProwlerNews) rss(s string) []*item {
 	return r.Channel.Items
 }
 
-func decodeBingNewsURL(s string) (string, error) {
-	parts := strings.Split(s, "&url=")
-	if len(parts) == 1 {
-		return "", errors.New("invalid bing news url")
-	} else if parts = strings.Split(parts[1], "&"); len(parts) == 1 {
-		return "", errors.New("invalid bing news url")
+func (p *ProwlerNews) goFindItems() []*item {
+	q := strings.ReplaceAll(p.ID, ` `, `+`)
+	urls := []string{
+		fmt.Sprintf("https://news.google.com/rss/search?q=%s&hl=en-US&gl=US&ceid=US:en", q),
 	}
-	return url.QueryUnescape(parts[0])
+
+	var wg sync.WaitGroup
+	var items []*item
+	for _, u := range urls {
+		wg.Go(func() { items = append(items, p.rss(u)...) })
+	}
+	wg.Wait()
+
+	sort.Slice(items, func(i, j int) bool {
+		return items[i].Time.UnixMilli() < items[j].Time.UnixMilli()
+	})
+	log.Debug().Int("count", len(items)).Msg("ProwlerNews - Found items")
+	return items
+}
+
+func (p *ProwlerNews) goSaveItems(s3 db.S3, items []*item) ulid.ULID {
+
+	var prowled ulid.ULID
+	var saved int
+	var wg sync.WaitGroup
+	for _, i := range items {
+
+		wg.Go(func() {
+			if p.Prowled.Timestamp().UnixMilli() > i.Time.UnixMilli() {
+				return
+			}
+
+			if s, err := decodeGoogleNewsURL(i.URL); err != nil {
+				log.Warn().Err(err).Msg("ProwlerNews - failed to decode google news url")
+			} else {
+				i.URL = s
+			}
+
+			i.ID = i.Time.ULID()
+
+			if i.Src != nil {
+				i.Source = i.Src.Value
+			} else {
+				i.Source = util.Domain(i.URL)
+			}
+
+			if idx := strings.LastIndex(i.Title, " - "); idx != -1 {
+				i.Title = i.Title[:idx]
+			}
+
+			b, err := json.Marshal(i)
+			if err != nil {
+				log.Warn().Err(err).Msg("ProwlerNews - Failed to marshal article")
+				return
+			}
+
+			key := fmt.Sprintf("%s%s.json", p.Prowler.Dir(), i.ID)
+			if err = s3.Put(key, b); err != nil {
+				log.Warn().Err(err).Msg("ProwlerNews - Failed to save article")
+				return
+			}
+			saved++
+			prowled = i.ID
+		})
+	}
+	wg.Wait()
+	log.Debug().Int("count", saved).Msg("ProwlerNews - Saved items")
+	return prowled
 }
 
 func decodeGoogleNewsURL(s string) (string, error) {

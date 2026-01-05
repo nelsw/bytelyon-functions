@@ -47,13 +47,17 @@ func (s3 *s3) Get(k string) ([]byte, error) {
 
 	out, err := s3.GetObject(s3.Context, &_s3.GetObjectInput{
 		Bucket: s3.Bucket,
-		Key:    &k,
+		Key:    util.Ptr(k),
 	})
-
+	if err != nil {
+		log.Warn().Err(err).Msg("Get - Failed to read body")
+		return nil, err
+	}
 	var body []byte
-	if err == nil {
-		defer out.Body.Close()
-		body, err = io.ReadAll(out.Body)
+	defer out.Body.Close()
+	if body, err = io.ReadAll(out.Body); err != nil {
+		log.Warn().Err(err).Msg("Get - Failed to read body")
+		return nil, err
 	}
 
 	log.Trace().
@@ -84,29 +88,41 @@ func (s3 *s3) Put(k string, b []byte) (err error) {
 
 func (s3 *s3) Keys(s ...string) ([]string, error) {
 
-	var a string
-	if len(s) > 1 {
-		a = s[1]
-	}
-	out, err := s3.ListObjectsV2(s3.Context, &_s3.ListObjectsV2Input{
-		Bucket:     s3.Bucket,
-		Prefix:     &s[0],
-		MaxKeys:    util.Ptr(int32(1000)),
-		StartAfter: &a,
-	})
-
 	var keys []string
-	if err == nil {
-		for _, obj := range out.Contents {
-			keys = append(keys, *obj.Key)
+	var err error
+
+	var fn func(string, string)
+	fn = func(prefix, after string) {
+		var out *_s3.ListObjectsV2Output
+		out, err = s3.ListObjectsV2(s3.Context, &_s3.ListObjectsV2Input{
+			Bucket:     s3.Bucket,
+			Prefix:     &prefix,
+			MaxKeys:    util.Ptr(int32(1000)),
+			StartAfter: &after,
+		})
+
+		if err == nil {
+			for _, obj := range out.Contents {
+				keys = append(keys, *obj.Key)
+			}
+		}
+
+		if len(out.Contents) == 1000 {
+			fn(prefix, *out.Contents[len(out.Contents)-1].Key)
 		}
 	}
 
-	log.Trace().
+	if len(s) == 1 {
+		s = append(s, "")
+	}
+
+	fn(s[0], s[1])
+
+	log.Debug().
 		Err(err).
 		Str("prefix", s[0]).
-		Str("after", a).
-		Strs("keys", keys).
+		Str("after", s[1]).
+		Int("keys", len(keys)).
 		Msg("Keys")
 
 	return keys, err

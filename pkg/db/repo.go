@@ -1,6 +1,7 @@
 package db
 
 import (
+	"errors"
 	"strings"
 
 	"github.com/oklog/ulid/v2"
@@ -19,12 +20,15 @@ func MagicDelete(userID, entityID ulid.ULID) error {
 	}
 
 	for _, key := range keys {
-		if strings.HasSuffix(key, entityID.String()+".json") {
+		if strings.HasSuffix(key, entityID.String()+".json") ||
+			strings.HasSuffix(key, entityID.String()+".html") ||
+			strings.HasSuffix(key, entityID.String()+".png") {
+
 			log.Debug().
 				Str("key", key).
 				Msg("Found a key to get magical with")
-			err = DB.Delete(key)
-			break
+
+			err = errors.Join(DB.Delete(key))
 		}
 	}
 

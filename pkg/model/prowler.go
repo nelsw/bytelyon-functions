@@ -18,7 +18,7 @@ type Prowler struct {
 	// ID is either a URL or Query string
 	ID        string        `json:"id"`
 	Type      ProwlerType   `json:"type"`
-	Prowled   ulid.ULID     `json:"prowled"`
+	Prowled   ulid.ULID     `json:"prowled,omitempty"`
 	Frequency time.Duration `json:"frequency"`
 	Duration  time.Duration `json:"duration"`
 	Targets   Targets       `json:"targets,omitempty"`
@@ -40,13 +40,16 @@ func (p *Prowler) Key() string {
 	return p.Dir() + "_.json"
 }
 
-func (p *Prowler) FindAll() (pp []*Prowler, err error) {
+func (p *Prowler) FindAll() (any, error) {
 
 	switch p.Type {
 	case SearchProwlerType:
-		return p.findAllSearches()
-	case SitemapProwlerType, NewsProwlerType:
-		return p.findAllSimpleTypes()
+		return NewProwlSearch(p).FindAll()
+	case SitemapProwlerType:
+		return NewProwlSitemap(p).FindAll()
+	case NewsProwlerType:
+		pp := &ProwlerNews{p}
+		return pp.FindAll()
 	}
 
 	return nil, errors.New("not implemented")
@@ -62,7 +65,6 @@ func (p *Prowler) findAllSearches() ([]*Prowler, error) {
 	} else if len(keys) == 0 {
 		return nil, errors.New("no keys found")
 	}
-	//sort.Sort(sort.Reverse(sort.StringSlice(keys)))
 
 	var uniqueJsonNames = make(map[string][]string)
 	for _, k := range keys {
@@ -247,14 +249,20 @@ func (p *Prowler) Prowl() {
 	}
 
 	ts := time.Now()
+	var prowled ulid.ULID
 
 	switch p.Type {
 	case SearchProwlerType:
-		p.Prowled = NewProwlSearch(p).Go()
+		prowled = NewProwlSearch(p).Go()
 	case SitemapProwlerType:
-		p.Prowled = NewProwlSitemap(p).Go()
+		prowled = NewProwlSitemap(p).Go()
 	case NewsProwlerType:
-		p.Prowled = NewProwlNews(p).Go()
+		prowled = NewProwlNews(p).Go()
+	}
+
+	if prowled.IsZero() {
+		log.Warn().Msgf("Prowl - Empty Prowl [%s/%s]", p.Type, p.ID)
+		return
 	}
 
 	p.Duration = time.Since(ts)
@@ -262,5 +270,6 @@ func (p *Prowler) Prowl() {
 		log.Warn().Err(err).Msgf("Prowl - Failed to save Prowler [%s/%s]", p.Type, p.ID)
 		return
 	}
+
 	log.Info().Msgf("Prowl - Prowled [%s/%s]", p.Type, p.ID)
 }
