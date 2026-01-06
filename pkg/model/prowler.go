@@ -237,7 +237,6 @@ func (p *Prowler) findAllSimpleTypes() ([]*Prowler, error) {
 }
 
 func (p *Prowler) Prowl() {
-
 	if p.Frequency == 0 && !p.Prowled.IsZero() {
 		log.Info().Msg("Prowler - Already prowled ...")
 		return

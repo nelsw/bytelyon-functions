@@ -46,7 +46,7 @@ func TestProwler_FindAll(t *testing.T) {
 	t.Setenv("S3_BUCKET", "bytelyon-db-test")
 	p := &Prowler{
 		UserID: ulid.MustParse("01K48PC0BK13BWV2CGWFP8QQH0"),
-		Type:   NewsProwlerType,
+		Type:   SearchProwlerType,
 	}
 	all, err := p.FindAll()
 	assert.NoError(t, err)

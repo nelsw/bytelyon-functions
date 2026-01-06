@@ -45,8 +45,6 @@ func handlePut(r api.Request) (events.APIGatewayV2HTTPResponse, error) {
 		return api.BadRequest(err)
 	}
 
-	p.Prowl()
-
 	return api.Response(p, db.Find(p))
 }
 
