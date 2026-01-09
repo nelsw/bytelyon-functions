@@ -23,6 +23,7 @@ type Prowler struct {
 	Duration  time.Duration `json:"duration"`
 	Targets   Targets       `json:"targets,omitempty"`
 	Sessions  []any         `json:"sessions,omitempty"`
+	Disabled  bool          `json:"disabled"`
 }
 
 func (p *Prowler) Dir() string {

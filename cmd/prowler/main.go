@@ -5,6 +5,7 @@ import (
 	"bytelyon-functions/pkg/db"
 	"bytelyon-functions/pkg/model"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"strings"
 
@@ -35,6 +36,10 @@ func handlePut(r api.Request) (events.APIGatewayV2HTTPResponse, error) {
 		return api.BadRequest(err)
 	}
 
+	if p.ID == "" {
+		return api.BadRequest(errors.New("id required"))
+	}
+
 	if strings.HasSuffix(p.ID, "/") {
 		p.ID = strings.TrimSuffix(p.ID, "/")
 	}
@@ -48,6 +53,7 @@ func handlePut(r api.Request) (events.APIGatewayV2HTTPResponse, error) {
 	return api.Response(p, db.Find(p))
 }
 
+// todo - delete ids
 func handleDelete(r api.Request) (events.APIGatewayV2HTTPResponse, error) {
 	id, err := ulid.Parse(r.Param("id"))
 	if err != nil {

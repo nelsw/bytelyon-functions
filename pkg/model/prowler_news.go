@@ -93,8 +93,7 @@ func (p *ProwlerNews) FindAll() ([]*Node, error) {
 
 		rootLabel := id[strings.LastIndex(id, "/")+1:]
 		rootID := "news/" + rootLabel
-		root := NewNode(rootID, rootLabel)
-		root.Data = prowler
+		root := NewNode(rootID, rootLabel, prowler)
 		nodes = append(nodes, root)
 
 		dates := slices.Collect(maps.Keys(leafMap[id]))
@@ -104,9 +103,7 @@ func (p *ProwlerNews) FindAll() ([]*Node, error) {
 		for _, date := range dates {
 			dateLabel := date
 			dateID := rootID + "/" + dateLabel
-			branch := NewNode(dateID, dateLabel)
-			leaves := leafMap[id][date]
-			branch.Data = leaves
+			branch := NewNode(dateID, dateLabel, leafMap[id][date])
 			root.Children = append(root.Children, branch)
 		}
 	}

@@ -18,7 +18,6 @@ func NewNode(id, label string, a ...any) *Node {
 	return &Node{
 		ID:         id,
 		Label:      label,
-		NoTick:     true,
 		Expandable: true,
 		Selectable: true,
 		Data:       data,
